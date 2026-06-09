@@ -1,26 +1,171 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist), var(--font-inter), sans-serif;
+  --font-heading: var(--font-geist), sans-serif;
   --font-mono: var(--font-geist-mono);
+  
+  --color-brand-primary: var(--primary);
+  --color-brand-secondary: var(--secondary);
+  --color-brand-bg: var(--background);
+  --color-brand-card: var(--card);
+  --color-brand-border: var(--border);
+  --color-brand-muted: var(--muted-foreground);
+  
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root, .dark {
+  --background: #0B1020;
+  --foreground: #FFFFFF;
+  --card: #151A2D;
+  --card-foreground: #FFFFFF;
+  --popover: #151A2D;
+  --popover-foreground: #FFFFFF;
+  --primary: #7C5CFC;
+  --primary-foreground: #FFFFFF;
+  --secondary: #6366F1;
+  --secondary-foreground: #FFFFFF;
+  --muted: #252B45;
+  --muted-foreground: #94A3B8;
+  --accent: #252B45;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #252B45;
+  --input: #252B45;
+  --ring: #7C5CFC;
+  --radius: 0.5rem;
+  
+  --sidebar: #0B1020;
+  --sidebar-foreground: #94A3B8;
+  --sidebar-primary: #7C5CFC;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #151A2D;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #252B45;
+  --sidebar-ring: #7C5CFC;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Notion-style Editor (Tiptap) Styling */
+.tiptap {
+  outline: none;
+  min-height: 250px;
+}
+.tiptap p {
+  @apply my-3 leading-relaxed text-slate-100;
+}
+.tiptap h1 {
+  @apply text-3xl font-bold mt-6 mb-4 text-white tracking-tight;
+}
+.tiptap h2 {
+  @apply text-2xl font-semibold mt-5 mb-3 text-white tracking-tight;
+}
+.tiptap h3 {
+  @apply text-xl font-medium mt-4 mb-2 text-white;
+}
+.tiptap ul {
+  @apply list-disc pl-6 my-3 space-y-1 text-slate-100;
+}
+.tiptap ol {
+  @apply list-decimal pl-6 my-3 space-y-1 text-slate-100;
+}
+.tiptap blockquote {
+  @apply pl-4 border-l-4 border-brand-primary/50 italic my-4 text-slate-300 bg-brand-card/30 py-2 pr-2 rounded-r;
+}
+.tiptap pre {
+  @apply bg-[#0B1020] p-4 rounded-lg my-4 overflow-x-auto border border-brand-border font-mono text-sm text-slate-200;
+}
+.tiptap code {
+  @apply bg-[#1a2035] px-1.5 py-0.5 rounded text-sm font-mono text-indigo-300 border border-brand-border/40;
+}
+.tiptap pre code {
+  @apply bg-transparent p-0 rounded-none border-none text-slate-200;
+}
+.tiptap hr {
+  @apply border-brand-border my-6;
+}
+.tiptap a {
+  @apply text-brand-primary underline hover:text-brand-secondary cursor-pointer;
+}
+.tiptap img {
+  @apply max-w-full h-auto rounded-lg border border-brand-border my-4;
+}
+
+/* Callout block styling */
+.callout-block {
+  @apply flex items-start gap-3 p-4 rounded-lg bg-brand-card/50 border border-brand-border/80 my-4;
+}
+
+/* Checklist / Task List styling */
+.tiptap ul[data-type="taskList"] {
+  @apply list-none pl-0 space-y-2;
+}
+.tiptap ul[data-type="taskList"] li {
+  @apply flex items-start gap-3;
+}
+.tiptap ul[data-type="taskList"] li > label {
+  @apply flex items-center select-none pt-1 cursor-pointer;
+}
+.tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+  @apply w-4 h-4 rounded border-brand-border text-brand-primary bg-brand-card focus:ring-brand-primary cursor-pointer accent-[#7C5CFC];
+}
+.tiptap ul[data-type="taskList"] li > div {
+  @apply flex-1;
+}
+
+/* Table styling in Tiptap */
+.tiptap table {
+  @apply border-collapse table-auto w-full my-6 text-sm border border-brand-border rounded-lg overflow-hidden;
+}
+.tiptap th {
+  @apply border border-brand-border bg-[#151A2D] px-4 py-2 font-semibold text-left text-white;
+}
+.tiptap td {
+  @apply border border-brand-border px-4 py-2 text-slate-300;
+}
+.tiptap tr:nth-child(even) {
+  @apply bg-brand-card/20;
 }

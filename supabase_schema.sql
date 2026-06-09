@@ -133,6 +133,27 @@ CREATE INDEX idx_document_acknowledgements_user_document ON document_acknowledge
 -- -------------------------------------------------------------
 -- Row Level Security (RLS) Policies
 -- -------------------------------------------------------------
+-- Create security definer helper functions to avoid policy recursion
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_editor_or_admin()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role IN ('admin', 'edit')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_categories ENABLE ROW LEVEL SECURITY;
@@ -158,12 +179,8 @@ CREATE POLICY "Enable update for users on their own profile"
 CREATE POLICY "Enable full access for admin users"
     ON users FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
-        )
-    );
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- 2. Policies for 'document_categories'
 CREATE POLICY "Enable read for all authenticated users"
@@ -174,12 +191,7 @@ CREATE POLICY "Enable read for all authenticated users"
 CREATE POLICY "Enable write operations for admins only"
     ON document_categories FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
-        )
-    );
+    USING (public.is_admin());
 
 -- 3. Policies for 'documents'
 CREATE POLICY "Enable read access for viewable documents"
@@ -187,10 +199,7 @@ CREATE POLICY "Enable read access for viewable documents"
     TO authenticated
     USING (
         -- Admins and editors can see all documents
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role IN ('admin', 'edit')
-        )
+        public.is_editor_or_admin()
         OR
         -- Viewers can only see published documents
         (status = 'published')
@@ -199,12 +208,7 @@ CREATE POLICY "Enable read access for viewable documents"
 CREATE POLICY "Enable write operations for editors and admins"
     ON documents FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role IN ('admin', 'edit')
-        )
-    );
+    USING (public.is_editor_or_admin());
 
 -- 4. Policies for 'document_assignments'
 CREATE POLICY "Enable read assignments for all authenticated users"
@@ -215,12 +219,7 @@ CREATE POLICY "Enable read assignments for all authenticated users"
 CREATE POLICY "Enable write assignments for editors and admins"
     ON document_assignments FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role IN ('admin', 'edit')
-        )
-    );
+    USING (public.is_editor_or_admin());
 
 -- 5. Policies for 'document_acknowledgements'
 CREATE POLICY "Enable read acknowledgements for all authenticated"
@@ -266,12 +265,8 @@ CREATE POLICY "Enable read attachments for authenticated"
 CREATE POLICY "Enable write attachments for editors and admins"
     ON attachments FOR ALL
     TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role IN ('admin', 'edit')
-        )
-    );
+    USING (public.is_editor_or_admin());
+
 
 -- -------------------------------------------------------------
 -- Profile sync trigger from auth.users
