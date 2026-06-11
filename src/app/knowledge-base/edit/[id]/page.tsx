@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, Save, Globe, Eye, Archive as ArchiveIcon } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -135,14 +136,15 @@ function EditDocumentContent({ id }: { id: string }) {
       {/* Top action header */}
       <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push(isNew ? "/knowledge-base" : `/knowledge-base/${id}`)}
-            className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <Link href={isNew ? "/knowledge-base" : `/knowledge-base/${id}`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
           <h1 className="text-xl font-bold tracking-tight text-white">
             {isNew ? "Create Document" : `Edit: ${document?.title}`}
           </h1>
@@ -298,13 +300,14 @@ function EditDocumentContent({ id }: { id: string }) {
               </Button>
             )}
             
-            <Button
-              variant="ghost"
-              onClick={() => router.push(isNew ? "/knowledge-base" : `/knowledge-base/${id}`)}
-              className="w-full text-slate-500 hover:text-white"
-            >
-              Cancel
-            </Button>
+            <Link href={isNew ? "/knowledge-base" : `/knowledge-base/${id}`} className="w-full">
+              <Button
+                variant="ghost"
+                className="w-full text-slate-500 hover:text-white"
+              >
+                Cancel
+              </Button>
+            </Link>
           </div>
         </div>
         

@@ -167,14 +167,15 @@ function ViewDocumentContent({ id }: { id: string }) {
       {/* Top action header */}
       <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/knowledge-base")}
-            className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <Link href="/knowledge-base">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
           <span className="text-sm text-slate-500 hover:text-[#0EA5E9] transition-colors">
             <Link href="/knowledge-base">Knowledge Base</Link>
           </span>
@@ -182,13 +183,14 @@ function ViewDocumentContent({ id }: { id: string }) {
           <span className="text-sm font-semibold truncate max-w-[200px]">{doc.title}</span>
         </div>
         {user?.role !== "view" && (
-          <Button
-            onClick={() => router.push(`/knowledge-base/edit/${doc.id}`)}
-            className="bg-[#0F1629] hover:bg-[#1E2D47] text-slate-300 border border-[#1E2D47] hover:text-white flex items-center gap-1.5 font-medium transition-colors"
-          >
-            <Edit2 className="h-4 w-4" />
-            Edit Document
-          </Button>
+          <Link href={`/knowledge-base/edit/${doc.id}`}>
+            <Button
+              className="bg-[#0F1629] hover:bg-[#1E2D47] text-slate-300 border border-[#1E2D47] hover:text-white flex items-center gap-1.5 font-medium transition-colors"
+            >
+              <Edit2 className="h-4 w-4" />
+              Edit Document
+            </Button>
+          </Link>
         )}
       </div>
 

@@ -240,28 +240,30 @@ function DashboardContent() {
             </h2>
             <div className="mt-4 flex flex-col gap-3">
               {user?.role !== "view" && (
+                <Link href="/knowledge-base/edit/new" className="w-full">
+                  <Button
+                    className="w-full justify-between bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Create Document
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+              <Link href="/knowledge-base" className="w-full">
                 <Button
-                  onClick={() => router.push("/knowledge-base/edit/new")}
-                  className="w-full justify-between bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium transition-colors"
+                  variant="outline"
+                  className="w-full justify-between border-[#1E2D47] bg-[#0F1629]/40 text-slate-200 hover:bg-[#1E2D47] hover:text-white transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Create Document
+                    <FileText className="h-4 w-4" />
+                    Open Knowledge Base
                   </span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-              )}
-              <Button
-                onClick={() => router.push("/knowledge-base")}
-                variant="outline"
-                className="w-full justify-between border-[#1E2D47] bg-[#0F1629]/40 text-slate-200 hover:bg-[#1E2D47] hover:text-white transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Open Knowledge Base
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              </Link>
             </div>
           </Card>
 

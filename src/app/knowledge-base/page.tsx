@@ -180,13 +180,14 @@ function KnowledgeBaseContent() {
           </p>
         </div>
         {user?.role !== "view" && (
-          <Button
-            onClick={() => router.push("/knowledge-base/edit/new")}
-            className="self-start sm:self-auto bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center gap-2 font-medium"
-          >
-            <Plus className="h-4 w-4" />
-            Create Document
-          </Button>
+          <Link href="/knowledge-base/edit/new" className="self-start sm:self-auto">
+            <Button
+              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center gap-2 font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              Create Document
+            </Button>
+          </Link>
         )}
       </div>
 
