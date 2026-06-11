@@ -106,8 +106,10 @@ function EditDocumentContent({ id }: { id: string }) {
       }
       
       router.push(`/knowledge-base/${resultDocId}`);
-    } catch (err) {
+      router.refresh();
+    } catch (err: any) {
       console.error("Failed to save document:", err);
+      alert("Failed to save document: " + (err?.message || String(err)));
     } finally {
       setIsSaving(false);
     }

@@ -119,8 +119,9 @@ function ViewDocumentContent({ id }: { id: string }) {
         const analyticsData = await service.getDocumentAnalytics(id);
         setAnalytics(analyticsData);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit acknowledgement:", err);
+      alert("Failed to submit acknowledgement: " + (err?.message || String(err)));
     } finally {
       setIsSubmittingAck(false);
     }
