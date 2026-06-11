@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Shield, Key, Mail, Lock, User as UserIcon, AlertCircle } from "lucide-react";
-import { getWorkspaceService, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { getWorkspaceService as apiService } from "@/lib/services/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
