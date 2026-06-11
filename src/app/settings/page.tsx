@@ -10,6 +10,9 @@ import {
   Trash2,
   CheckCircle,
   AlertTriangle,
+  Mail,
+  Send,
+  X,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -63,6 +66,12 @@ function SettingsContent() {
   const [newCatColor, setNewCatColor] = useState("#7C5CFC");
   const [isCreatingCat, setIsCreatingCat] = useState(false);
 
+  // Invite User Form
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<UserRole>("view");
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const loadSettingsData = async () => {
     try {
       const service = getWorkspaceService();
@@ -82,6 +91,29 @@ function SettingsContent() {
       loadSettingsData();
     }
   }, [user]);
+
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !isAdmin) return;
+    setIsInviting(true);
+    setInviteStatus(null);
+    try {
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Invite failed");
+      setInviteStatus({ type: "success", message: `Invite sent to ${inviteEmail.trim()} successfully!` });
+      setInviteEmail("");
+      setInviteRole("view");
+    } catch (err: any) {
+      setInviteStatus({ type: "error", message: err.message || "Failed to send invite" });
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     if (user?.role !== "admin") return;
@@ -212,6 +244,85 @@ function SettingsContent() {
         {/* TAB 1: User Management */}
         {/* ========================================== */}
         <TabsContent value="users">
+          {/* Invite User Card */}
+          {isAdmin && (
+            <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white mb-6">
+              <div className="flex items-center gap-2 border-b border-[#252B45] pb-4 mb-5">
+                <Mail className="h-5 w-5 text-[#7C5CFC]" />
+                <div>
+                  <h2 className="text-lg font-bold text-white">Invite Team Member</h2>
+                  <p className="text-xs text-[#94A3B8] mt-0.5">
+                    An invite email will be sent. User sets their own password on first login.
+                  </p>
+                </div>
+              </div>
+
+              {inviteStatus && (
+                <div
+                  className={`flex items-start justify-between gap-3 p-3 rounded-lg border text-xs mb-5 ${
+                    inviteStatus.type === "success"
+                      ? "bg-[#22C55E]/10 border-[#22C55E]/30 text-[#22C55E]"
+                      : "bg-[#EF4444]/10 border-[#EF4444]/30 text-[#EF4444]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {inviteStatus.type === "success" ? (
+                      <CheckCircle className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                    )}
+                    <span>{inviteStatus.message}</span>
+                  </div>
+                  <button onClick={() => setInviteStatus(null)} className="shrink-0 opacity-60 hover:opacity-100">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleInviteUser} className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="invite-email" className="text-xs font-semibold text-slate-300 mb-1.5 block">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="name@revtidigital.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                    required
+                  />
+                </div>
+                <div className="w-full sm:w-48">
+                  <Label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+                    Initial Role
+                  </Label>
+                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as UserRole)}>
+                    <SelectTrigger className="border-[#252B45] bg-[#0B1020] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
+                      <SelectItem value="view">VIEW (Read Only)</SelectItem>
+                      <SelectItem value="edit">EDIT (Create & Edit)</SelectItem>
+                      <SelectItem value="admin">ADMIN (Full Access)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="submit"
+                    disabled={isInviting || !inviteEmail.trim()}
+                    className="w-full sm:w-auto bg-[#7C5CFC] hover:bg-[#6847ea] text-white font-semibold flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <Send className="h-4 w-4" />
+                    {isInviting ? "Sending..." : "Send Invite"}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
           <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white">
             <div className="flex items-center justify-between border-b border-[#252B45] pb-4 mb-6">
               <div>
