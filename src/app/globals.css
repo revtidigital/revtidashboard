@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist), var(--font-inter), sans-serif;
-  --font-heading: var(--font-geist), sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-heading: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
   
   --color-brand-primary: var(--primary);
   --color-brand-secondary: var(--secondary);
@@ -46,35 +46,35 @@
 }
 
 :root, .dark {
-  --background: #0B1020;
+  --background: #07090F;
   --foreground: #FFFFFF;
-  --card: #151A2D;
+  --card: #0F1629;
   --card-foreground: #FFFFFF;
-  --popover: #151A2D;
+  --popover: #0F1629;
   --popover-foreground: #FFFFFF;
-  --primary: #7C5CFC;
-  --primary-foreground: #FFFFFF;
-  --secondary: #6366F1;
-  --secondary-foreground: #FFFFFF;
-  --muted: #252B45;
+  --primary: #0EA5E9;
+  --primary-foreground: #07090F;
+  --secondary: #38BDF8;
+  --secondary-foreground: #07090F;
+  --muted: #1E2D47;
   --muted-foreground: #94A3B8;
-  --accent: #252B45;
+  --accent: #1E2D47;
   --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --border: #252B45;
-  --input: #252B45;
-  --ring: #7C5CFC;
+  --border: #1E2D47;
+  --input: #1E2D47;
+  --ring: #0EA5E9;
   --radius: 0.5rem;
   
-  --sidebar: #0B1020;
+  --sidebar: #07090F;
   --sidebar-foreground: #94A3B8;
-  --sidebar-primary: #7C5CFC;
+  --sidebar-primary: #0EA5E9;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #151A2D;
+  --sidebar-accent: #0F1629;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #252B45;
-  --sidebar-ring: #7C5CFC;
+  --sidebar-border: #1E2D47;
+  --sidebar-ring: #0EA5E9;
 }
 
 @layer base {
@@ -83,9 +83,19 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--font-jetbrains-mono), monospace;
   }
 }
 
@@ -116,7 +126,7 @@
   @apply pl-4 border-l-4 border-brand-primary/50 italic my-4 text-slate-300 bg-brand-card/30 py-2 pr-2 rounded-r;
 }
 .tiptap pre {
-  @apply bg-[#0B1020] p-4 rounded-lg my-4 overflow-x-auto border border-brand-border font-mono text-sm text-slate-200;
+  @apply bg-[#07090F] p-4 rounded-lg my-4 overflow-x-auto border border-brand-border font-mono text-sm text-slate-200;
 }
 .tiptap code {
   @apply bg-[#1a2035] px-1.5 py-0.5 rounded text-sm font-mono text-indigo-300 border border-brand-border/40;
@@ -150,7 +160,7 @@
   @apply flex items-center select-none pt-1 cursor-pointer;
 }
 .tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
-  @apply w-4 h-4 rounded border-brand-border text-brand-primary bg-brand-card focus:ring-brand-primary cursor-pointer accent-[#7C5CFC];
+  @apply w-4 h-4 rounded border-brand-border text-brand-primary bg-brand-card focus:ring-brand-primary cursor-pointer accent-[#0EA5E9];
 }
 .tiptap ul[data-type="taskList"] li > div {
   @apply flex-1;
@@ -161,7 +171,7 @@
   @apply border-collapse table-auto w-full my-6 text-sm border border-brand-border rounded-lg overflow-hidden;
 }
 .tiptap th {
-  @apply border border-brand-border bg-[#151A2D] px-4 py-2 font-semibold text-left text-white;
+  @apply border border-brand-border bg-[#0F1629] px-4 py-2 font-semibold text-left text-white;
 }
 .tiptap td {
   @apply border border-brand-border px-4 py-2 text-slate-300;

@@ -45,8 +45,8 @@ const MOCK_USERS: User[] = [
 ];
 
 const MOCK_CATEGORIES: Category[] = [
-  { id: "cat-1", name: "SOPs", slug: "sops", color: "#7C5CFC", created_at: new Date().toISOString() },
-  { id: "cat-2", name: "Documentation", slug: "documentation", color: "#6366F1", created_at: new Date().toISOString() },
+  { id: "cat-1", name: "SOPs", slug: "sops", color: "#0EA5E9", created_at: new Date().toISOString() },
+  { id: "cat-2", name: "Documentation", slug: "documentation", color: "#38BDF8", created_at: new Date().toISOString() },
   { id: "cat-3", name: "Training", slug: "training", color: "#22C55E", created_at: new Date().toISOString() },
   { id: "cat-4", name: "Templates", slug: "templates", color: "#3B82F6", created_at: new Date().toISOString() },
   { id: "cat-5", name: "Policies", slug: "policies", color: "#EF4444", created_at: new Date().toISOString() },

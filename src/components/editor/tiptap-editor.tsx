@@ -74,7 +74,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
   if (!editor) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-[#252B45] bg-[#151A2D]/20">
+      <div className="flex h-64 items-center justify-center rounded-lg border border-[#1E2D47] bg-[#0F1629]/20">
         <span className="text-sm text-[#94A3B8] animate-pulse">Loading Editor...</span>
       </div>
     );
@@ -99,16 +99,16 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
   };
 
   return (
-    <div className="flex flex-col rounded-lg border border-[#252B45] bg-[#151A2D]/30 focus-within:border-[#7C5CFC]/50 transition-colors">
+    <div className="flex flex-col rounded-lg border border-[#1E2D47] bg-[#0F1629]/30 focus-within:border-[#0EA5E9]/50 transition-colors">
       {/* Editor Formatting Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-[#252B45] bg-[#151A2D]/70 p-2 rounded-t-lg">
+      <div className="flex flex-wrap items-center gap-1 border-b border-[#1E2D47] bg-[#0F1629]/70 p-2 rounded-t-lg">
         {/* Paragraph & Headings */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().setParagraph().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("paragraph") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("paragraph") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Paragraph"
         >
           <Pilcrow className="h-4 w-4" />
@@ -118,7 +118,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 1 }) ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 1 }) ? "bg-[#1E2D47] text-white" : ""}`}
           title="Heading 1"
         >
           <Heading1 className="h-4 w-4" />
@@ -128,7 +128,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 2 }) ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 2 }) ? "bg-[#1E2D47] text-white" : ""}`}
           title="Heading 2"
         >
           <Heading2 className="h-4 w-4" />
@@ -138,13 +138,13 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 3 }) ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("heading", { level: 3 }) ? "bg-[#1E2D47] text-white" : ""}`}
           title="Heading 3"
         >
           <Heading3 className="h-4 w-4" />
         </Button>
 
-        <div className="h-4 w-[1px] bg-[#252B45] mx-1" />
+        <div className="h-4 w-[1px] bg-[#1E2D47] mx-1" />
 
         {/* Basic Formats */}
         <Button
@@ -152,7 +152,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("bold") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("bold") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Bold"
         >
           <Bold className="h-4 w-4" />
@@ -162,7 +162,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("italic") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("italic") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Italic"
         >
           <Italic className="h-4 w-4" />
@@ -172,13 +172,13 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("underline") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("underline") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Underline"
         >
           <UnderlineIcon className="h-4 w-4" />
         </Button>
 
-        <div className="h-4 w-[1px] bg-[#252B45] mx-1" />
+        <div className="h-4 w-[1px] bg-[#1E2D47] mx-1" />
 
         {/* Lists & Checkboxes */}
         <Button
@@ -186,7 +186,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("bulletList") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("bulletList") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Bullet List"
         >
           <List className="h-4 w-4" />
@@ -196,7 +196,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("orderedList") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("orderedList") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Numbered List"
         >
           <ListOrdered className="h-4 w-4" />
@@ -206,13 +206,13 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("taskList") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("taskList") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Checklist"
         >
           <CheckSquare className="h-4 w-4" />
         </Button>
 
-        <div className="h-4 w-[1px] bg-[#252B45] mx-1" />
+        <div className="h-4 w-[1px] bg-[#1E2D47] mx-1" />
 
         {/* Code, Quote, Table, Divider, Links */}
         <Button
@@ -220,7 +220,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("codeBlock") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("codeBlock") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Code Block"
         >
           <Code className="h-4 w-4" />
@@ -230,7 +230,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("blockquote") ? "bg-[#252B45] text-white" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("blockquote") ? "bg-[#1E2D47] text-white" : ""}`}
           title="Blockquote"
         >
           <Quote className="h-4 w-4" />
@@ -250,7 +250,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           variant="ghost"
           size="icon"
           onClick={addLink}
-          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("link") ? "bg-[#252B45] text-[#7C5CFC]" : ""}`}
+          className={`h-8 w-8 text-slate-300 hover:text-white ${editor.isActive("link") ? "bg-[#1E2D47] text-[#0EA5E9]" : ""}`}
           title="Hyperlink"
         >
           <LinkIcon className="h-4 w-4" />

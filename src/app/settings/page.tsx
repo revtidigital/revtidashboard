@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/table";
 
 const PALETTE_COLORS = [
-  { name: "Purple", hex: "#7C5CFC" },
-  { name: "Indigo", hex: "#6366F1" },
+  { name: "Purple", hex: "#0EA5E9" },
+  { name: "Indigo", hex: "#38BDF8" },
   { name: "Green", hex: "#22C55E" },
   { name: "Blue", hex: "#3B82F6" },
   { name: "Red", hex: "#EF4444" },
@@ -63,7 +63,7 @@ function SettingsContent() {
 
   // New Category Form
   const [newCatName, setNewCatName] = useState("");
-  const [newCatColor, setNewCatColor] = useState("#7C5CFC");
+  const [newCatColor, setNewCatColor] = useState("#0EA5E9");
   const [isCreatingCat, setIsCreatingCat] = useState(false);
 
   // Invite User Form
@@ -137,7 +137,7 @@ function SettingsContent() {
       const service = getWorkspaceService();
       await service.createCategory(newCatName.trim(), newCatColor);
       setNewCatName("");
-      setNewCatColor("#7C5CFC");
+      setNewCatColor("#0EA5E9");
       loadSettingsData();
     } catch (err) {
       console.error("Failed to create category:", err);
@@ -164,8 +164,8 @@ function SettingsContent() {
     try {
       const service = getWorkspaceService();
       const defaults = [
-        { name: "SOPs", color: "#7C5CFC" },
-        { name: "Documentation", color: "#6366F1" },
+        { name: "SOPs", color: "#0EA5E9" },
+        { name: "Documentation", color: "#38BDF8" },
         { name: "Training", color: "#22C55E" },
         { name: "Templates", color: "#3B82F6" },
         { name: "Policies", color: "#EF4444" },
@@ -193,9 +193,9 @@ function SettingsContent() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="h-10 w-48 rounded bg-[#151A2D] animate-pulse" />
-        <div className="h-12 w-full rounded bg-[#151A2D] animate-pulse" />
-        <div className="h-80 rounded bg-[#151A2D] animate-pulse" />
+        <div className="h-10 w-48 rounded bg-[#0F1629] animate-pulse" />
+        <div className="h-12 w-full rounded bg-[#0F1629] animate-pulse" />
+        <div className="h-80 rounded bg-[#0F1629] animate-pulse" />
       </div>
     );
   }
@@ -216,24 +216,24 @@ function SettingsContent() {
 
       <Tabs defaultValue="users" className="w-full">
         {/* Navigation Tabs Header */}
-        <TabsList className="bg-[#151A2D] border border-[#252B45] text-slate-400 p-1 mb-6">
+        <TabsList className="bg-[#0F1629] border border-[#1E2D47] text-slate-400 p-1 mb-6">
           <TabsTrigger
             value="users"
-            className="data-[state=active]:bg-[#7C5CFC] data-[state=active]:text-white flex items-center gap-1.5 px-4"
+            className="data-[state=active]:bg-[#0EA5E9] data-[state=active]:text-white flex items-center gap-1.5 px-4"
           >
             <UsersIcon className="h-4 w-4" />
             User Management
           </TabsTrigger>
           <TabsTrigger
             value="categories"
-            className="data-[state=active]:bg-[#7C5CFC] data-[state=active]:text-white flex items-center gap-1.5 px-4"
+            className="data-[state=active]:bg-[#0EA5E9] data-[state=active]:text-white flex items-center gap-1.5 px-4"
           >
             <FolderOpen className="h-4 w-4" />
             Categories Management
           </TabsTrigger>
           <TabsTrigger
             value="appearance"
-            className="data-[state=active]:bg-[#7C5CFC] data-[state=active]:text-white flex items-center gap-1.5 px-4"
+            className="data-[state=active]:bg-[#0EA5E9] data-[state=active]:text-white flex items-center gap-1.5 px-4"
           >
             <Palette className="h-4 w-4" />
             Appearance
@@ -246,9 +246,9 @@ function SettingsContent() {
         <TabsContent value="users">
           {/* Invite User Card */}
           {isAdmin && (
-            <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white mb-6">
-              <div className="flex items-center gap-2 border-b border-[#252B45] pb-4 mb-5">
-                <Mail className="h-5 w-5 text-[#7C5CFC]" />
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white mb-6">
+              <div className="flex items-center gap-2 border-b border-[#1E2D47] pb-4 mb-5">
+                <Mail className="h-5 w-5 text-[#0EA5E9]" />
                 <div>
                   <h2 className="text-lg font-bold text-white">Invite Team Member</h2>
                   <p className="text-xs text-[#94A3B8] mt-0.5">
@@ -290,7 +290,7 @@ function SettingsContent() {
                     placeholder="name@revtidigital.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                    className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                     required
                   />
                 </div>
@@ -299,10 +299,10 @@ function SettingsContent() {
                     Initial Role
                   </Label>
                   <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as UserRole)}>
-                    <SelectTrigger className="border-[#252B45] bg-[#0B1020] text-white">
+                    <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
+                    <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
                       <SelectItem value="view">VIEW (Read Only)</SelectItem>
                       <SelectItem value="edit">EDIT (Create & Edit)</SelectItem>
                       <SelectItem value="admin">ADMIN (Full Access)</SelectItem>
@@ -313,7 +313,7 @@ function SettingsContent() {
                   <Button
                     type="submit"
                     disabled={isInviting || !inviteEmail.trim()}
-                    className="w-full sm:w-auto bg-[#7C5CFC] hover:bg-[#6847ea] text-white font-semibold flex items-center gap-2 whitespace-nowrap"
+                    className="w-full sm:w-auto bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-semibold flex items-center gap-2 whitespace-nowrap"
                   >
                     <Send className="h-4 w-4" />
                     {isInviting ? "Sending..." : "Send Invite"}
@@ -323,8 +323,8 @@ function SettingsContent() {
             </Card>
           )}
 
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white">
-            <div className="flex items-center justify-between border-b border-[#252B45] pb-4 mb-6">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
+            <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4 mb-6">
               <div>
                 <h2 className="text-lg font-bold text-white">User Directory Roles</h2>
                 <p className="text-xs text-[#94A3B8] mt-1">
@@ -347,10 +347,10 @@ function SettingsContent() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-lg border border-[#252B45]">
+            <div className="overflow-x-auto rounded-lg border border-[#1E2D47]">
               <Table>
-                <TableHeader className="bg-[#0B1020]">
-                  <TableRow className="border-[#252B45] hover:bg-transparent">
+                <TableHeader className="bg-[#07090F]">
+                  <TableRow className="border-[#1E2D47] hover:bg-transparent">
                     <TableHead className="text-[#94A3B8] font-bold">User</TableHead>
                     <TableHead className="text-[#94A3B8] font-bold">Email</TableHead>
                     <TableHead className="text-[#94A3B8] font-bold">Permission Role</TableHead>
@@ -358,10 +358,10 @@ function SettingsContent() {
                 </TableHeader>
                 <TableBody>
                   {users.map((u) => (
-                    <TableRow key={u.id} className="border-[#252B45] hover:bg-[#252B45]/20">
+                    <TableRow key={u.id} className="border-[#1E2D47] hover:bg-[#1E2D47]/20">
                       <TableCell className="font-semibold text-white">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7C5CFC]/15 text-[#7C5CFC] text-xs font-bold">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0EA5E9]/15 text-[#0EA5E9] text-xs font-bold">
                             {u.full_name?.charAt(0) || "U"}
                           </div>
                           {u.full_name}
@@ -374,13 +374,13 @@ function SettingsContent() {
                           value={u.role}
                           onValueChange={(val) => handleRoleChange(u.id, (val as UserRole) || "view")}
                         >
-                          <SelectTrigger className="w-[180px] border-[#252B45] bg-[#0B1020] text-white">
+                          <SelectTrigger className="w-[180px] border-[#1E2D47] bg-[#07090F] text-white">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
-                            <SelectItem value="view" className="hover:bg-[#252B45]">VIEW (Read Only)</SelectItem>
-                            <SelectItem value="edit" className="hover:bg-[#252B45]">EDIT (Create & Edit)</SelectItem>
-                            <SelectItem value="admin" className="hover:bg-[#252B45]">ADMIN (Full Access)</SelectItem>
+                          <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                            <SelectItem value="view" className="hover:bg-[#1E2D47]">VIEW (Read Only)</SelectItem>
+                            <SelectItem value="edit" className="hover:bg-[#1E2D47]">EDIT (Create & Edit)</SelectItem>
+                            <SelectItem value="admin" className="hover:bg-[#1E2D47]">ADMIN (Full Access)</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -398,7 +398,7 @@ function SettingsContent() {
         <TabsContent value="categories">
           <div className="grid gap-6 md:grid-cols-3">
             {/* List existing Categories */}
-            <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white md:col-span-2">
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white md:col-span-2">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-bold text-white">Knowledge Categories</h2>
@@ -411,7 +411,7 @@ function SettingsContent() {
                     onClick={handleSeedDefaultCategories}
                     variant="outline"
                     size="sm"
-                    className="border-[#252B45] bg-[#0B1020] text-xs font-semibold text-[#7C5CFC] hover:bg-[#7C5CFC] hover:text-white flex items-center gap-1.5 px-3 py-1.5 h-auto transition-all"
+                    className="border-[#1E2D47] bg-[#07090F] text-xs font-semibold text-[#0EA5E9] hover:bg-[#0EA5E9] hover:text-white flex items-center gap-1.5 px-3 py-1.5 h-auto transition-all"
                   >
                     Seed Defaults
                   </Button>
@@ -422,7 +422,7 @@ function SettingsContent() {
                 {categories.map((cat) => (
                   <div
                     key={cat.id}
-                    className="flex items-center justify-between p-3.5 rounded-lg bg-[#0B1020] border border-[#252B45] transition-all hover:border-[#252B45] hover:bg-[#0B1020]/80"
+                    className="flex items-center justify-between p-3.5 rounded-lg bg-[#07090F] border border-[#1E2D47] transition-all hover:border-[#1E2D47] hover:bg-[#07090F]/80"
                   >
                     <div className="flex items-center gap-3">
                       {/* Color dot */}
@@ -452,7 +452,7 @@ function SettingsContent() {
             </Card>
 
             {/* Create Category Panel */}
-            <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white h-fit">
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white h-fit">
               <h2 className="text-lg font-bold text-white mb-1">Create Category</h2>
               <p className="text-xs text-[#94A3B8] mb-6">Add a new folder to the collection.</p>
 
@@ -470,7 +470,7 @@ function SettingsContent() {
                       placeholder="e.g. Developer Guides"
                       value={newCatName}
                       onChange={(e) => setNewCatName(e.target.value)}
-                      className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                      className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                       required
                     />
                   </div>
@@ -485,8 +485,8 @@ function SettingsContent() {
                           onClick={() => setNewCatColor(c.hex)}
                           className={`flex flex-col items-center gap-1 p-2 rounded-md border text-[9px] font-semibold transition-all ${
                             newCatColor === c.hex
-                              ? "border-[#7C5CFC] bg-[#7C5CFC]/10 text-white"
-                              : "border-[#252B45] bg-[#0B1020] text-slate-400 hover:border-slate-500"
+                              ? "border-[#0EA5E9] bg-[#0EA5E9]/10 text-white"
+                              : "border-[#1E2D47] bg-[#07090F] text-slate-400 hover:border-slate-500"
                           }`}
                         >
                           <span
@@ -502,7 +502,7 @@ function SettingsContent() {
                   <Button
                     type="submit"
                     disabled={isCreatingCat || !newCatName.trim()}
-                    className="w-full bg-[#7C5CFC] hover:bg-[#6847ea] text-white flex items-center justify-center gap-1.5 font-medium mt-4"
+                    className="w-full bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center justify-center gap-1.5 font-medium mt-4"
                   >
                     <Plus className="h-4 w-4" />
                     {isCreatingCat ? "Adding..." : "Add Category"}
@@ -517,7 +517,7 @@ function SettingsContent() {
         {/* TAB 3: Appearance Settings */}
         {/* ========================================== */}
         <TabsContent value="appearance">
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
             <h2 className="text-lg font-bold text-white mb-1">Brand Style & Layout</h2>
             <p className="text-xs text-[#94A3B8] mb-6">
               Revti Workspace color configurations and font weights.
@@ -528,35 +528,35 @@ function SettingsContent() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-300">Workspace Palette Tokens</h3>
                   <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#252B45] bg-[#0B1020]">
-                      <span className="h-4 w-4 rounded bg-[#0B1020] border border-[#252B45]" />
+                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#1E2D47] bg-[#07090F]">
+                      <span className="h-4 w-4 rounded bg-[#07090F] border border-[#1E2D47]" />
                       <div>
                         <p className="font-semibold text-white">BG Color</p>
-                        <p className="text-[9px] text-[#94A3B8]">#0B1020</p>
+                        <p className="text-[9px] text-[#94A3B8]">#07090F</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#252B45] bg-[#151A2D]">
-                      <span className="h-4 w-4 rounded bg-[#151A2D] border border-[#252B45]" />
+                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#1E2D47] bg-[#0F1629]">
+                      <span className="h-4 w-4 rounded bg-[#0F1629] border border-[#1E2D47]" />
                       <div>
                         <p className="font-semibold text-white">Card BG</p>
-                        <p className="text-[9px] text-[#94A3B8]">#151A2D</p>
+                        <p className="text-[9px] text-[#94A3B8]">#0F1629</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#252B45] bg-[#252B45]">
-                      <span className="h-4 w-4 rounded bg-[#252B45] border border-[#252B45]" />
+                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#1E2D47] bg-[#1E2D47]">
+                      <span className="h-4 w-4 rounded bg-[#1E2D47] border border-[#1E2D47]" />
                       <div>
                         <p className="font-semibold text-white">Borders</p>
-                        <p className="text-[9px] text-[#94A3B8]">#252B45</p>
+                        <p className="text-[9px] text-[#94A3B8]">#1E2D47</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#252B45]">
-                      <span className="h-4 w-4 rounded bg-[#7C5CFC]" />
+                    <div className="flex items-center gap-2 text-xs p-2 rounded border border-[#1E2D47]">
+                      <span className="h-4 w-4 rounded bg-[#0EA5E9]" />
                       <div>
                         <p className="font-semibold text-white">Accent</p>
-                        <p className="text-[9px] text-[#94A3B8]">#7C5CFC</p>
+                        <p className="text-[9px] text-[#94A3B8]">#0EA5E9</p>
                       </div>
                     </div>
                   </div>
@@ -579,18 +579,18 @@ function SettingsContent() {
               </div>
 
               {/* Theme preview */}
-              <div className="border border-[#252B45] rounded-lg p-5 bg-[#0B1020]/60 space-y-4">
+              <div className="border border-[#1E2D47] rounded-lg p-5 bg-[#07090F]/60 space-y-4">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">SaaS Preview</h4>
-                <Card className="border-[#252B45] bg-[#151A2D] p-4 text-white shadow-xl space-y-2">
+                <Card className="border-[#1E2D47] bg-[#0F1629] p-4 text-white shadow-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-[#7C5CFC] font-bold tracking-widest bg-[#7C5CFC]/10 px-2 py-0.5 rounded border border-[#7C5CFC]/30">PREVIEW</span>
+                    <span className="text-[9px] text-[#0EA5E9] font-bold tracking-widest bg-[#0EA5E9]/10 px-2 py-0.5 rounded border border-[#0EA5E9]/30">PREVIEW</span>
                     <span className="text-[9px] text-slate-500">Just now</span>
                   </div>
                   <h5 className="text-sm font-bold">Premium SaaS Design System</h5>
                   <p className="text-[11px] text-[#94A3B8] leading-relaxed">
                     Theme inherits dark properties dynamically. The palette feels similar to Linear and Vercel.
                   </p>
-                  <Button size="sm" className="bg-[#7C5CFC] text-white hover:bg-[#6847ea] w-full text-xs font-medium mt-1">
+                  <Button size="sm" className="bg-[#0EA5E9] text-white hover:bg-[#0284C7] w-full text-xs font-medium mt-1">
                     Sample Click Button
                   </Button>
                 </Card>

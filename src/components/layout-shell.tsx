@@ -26,7 +26,7 @@ function LayoutShellInner({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0B1020] text-white">
+      <div className="flex min-h-screen items-center justify-center bg-[#07090F] text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
           <span className="text-xs text-[#94A3B8] tracking-widest uppercase">Initializing Revti Workspace...</span>
@@ -38,7 +38,7 @@ function LayoutShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#0B1020] text-white">
+    <div className="min-h-screen bg-[#07090F] text-white">
       {/* Fixed left sidebar for large viewports */}
       <Sidebar className="hidden lg:flex" />
 

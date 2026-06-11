@@ -102,7 +102,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B1020] px-4 text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#07090F] px-4 text-white">
       <div className="w-full max-w-md space-y-8">
         
         {/* Header Logo */}
@@ -122,9 +122,9 @@ export default function LoginPage() {
 
         {isSandbox ? (
           /* Sandbox mode shortcuts */
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 shadow-2xl space-y-6">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 shadow-2xl space-y-6">
             <div className="text-center space-y-1.5">
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7C5CFC] bg-[#7C5CFC]/10 px-2 py-0.5 rounded border border-[#7C5CFC]/30 uppercase tracking-widest">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0EA5E9] bg-[#0EA5E9]/10 px-2 py-0.5 rounded border border-[#0EA5E9]/30 uppercase tracking-widest">
                 Sandbox Mode Active
               </span>
               <h2 className="text-lg font-bold text-white mt-2">Select a Persona to Sign In</h2>
@@ -138,13 +138,13 @@ export default function LoginPage() {
                 <button
                   key={u.id}
                   onClick={() => handleSandboxLogin(u.id)}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-[#252B45] bg-[#0B1020]/50 hover:bg-[#252B45]/40 hover:border-[#7C5CFC]/40 text-left transition-all group"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-[#1E2D47] bg-[#07090F]/50 hover:bg-[#1E2D47]/40 hover:border-[#0EA5E9]/40 text-left transition-all group"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7C5CFC]/15 text-[#7C5CFC] text-xs font-bold group-hover:bg-[#7C5CFC]/20">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0EA5E9]/15 text-[#0EA5E9] text-xs font-bold group-hover:bg-[#0EA5E9]/20">
                     {u.full_name?.charAt(0) || "U"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white group-hover:text-[#7C5CFC] transition-colors">{u.full_name}</p>
+                    <p className="text-sm font-semibold text-white group-hover:text-[#0EA5E9] transition-colors">{u.full_name}</p>
                     <p className="text-[10px] text-[#94A3B8] capitalize mt-0.5">{u.role} Access</p>
                   </div>
                   <Shield className="h-4 w-4 text-[#94A3B8] group-hover:text-white" />
@@ -154,7 +154,7 @@ export default function LoginPage() {
           </Card>
         ) : (
           /* Live Supabase login controls */
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 shadow-2xl space-y-6">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 shadow-2xl space-y-6">
             <div className="text-center">
               <h2 className="text-xl font-bold text-white">
                 {isSignUp ? "Create Account" : "Sign In to Workspace"}
@@ -183,7 +183,7 @@ export default function LoginPage() {
                     placeholder="Enter full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                    className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                     required={isSignUp}
                   />
                 </div>
@@ -200,7 +200,7 @@ export default function LoginPage() {
                   placeholder="name@revtidigital.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                  className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                   required
                 />
               </div>
@@ -216,7 +216,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                  className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                   required
                 />
               </div>
@@ -224,7 +224,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#7C5CFC] hover:bg-[#6847ea] text-white font-semibold flex items-center justify-center gap-1.5 mt-2"
+                className="w-full bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-semibold flex items-center justify-center gap-1.5 mt-2"
               >
                 <Key className="h-4 w-4" />
                 {isSubmitting ? "Authenticating..." : isSignUp ? "Sign Up" : "Sign In"}
@@ -235,7 +235,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs text-[#7C5CFC] hover:underline"
+                className="text-xs text-[#0EA5E9] hover:underline"
               >
                 {isSignUp ? "Already have an account? Sign In" : "Need a new account? Register"}
               </button>

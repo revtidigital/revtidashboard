@@ -117,12 +117,12 @@ function EditDocumentContent({ id }: { id: string }) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-4">
-          <div className="h-9 w-9 rounded-full bg-[#151A2D] animate-pulse" />
-          <div className="h-8 w-64 rounded bg-[#151A2D] animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-[#0F1629] animate-pulse" />
+          <div className="h-8 w-64 rounded bg-[#0F1629] animate-pulse" />
         </div>
         <div className="grid gap-6 md:grid-cols-4">
-          <div className="md:col-span-3 h-96 rounded bg-[#151A2D] animate-pulse" />
-          <div className="h-96 rounded bg-[#151A2D] animate-pulse" />
+          <div className="md:col-span-3 h-96 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-96 rounded bg-[#0F1629] animate-pulse" />
         </div>
       </div>
     );
@@ -131,13 +131,13 @@ function EditDocumentContent({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Top action header */}
-      <div className="flex items-center justify-between border-b border-[#252B45] pb-4">
+      <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push(isNew ? "/knowledge-base" : `/knowledge-base/${id}`)}
-            className="text-slate-400 hover:text-white hover:bg-[#151A2D]"
+            className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -152,7 +152,7 @@ function EditDocumentContent({ id }: { id: string }) {
             size="sm"
             onClick={() => handleSave(status)}
             disabled={isSaving}
-            className="bg-[#7C5CFC] hover:bg-[#6847ea] text-white"
+            className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white"
           >
             <Save className="h-4 w-4 mr-1.5" />
             {isSaving ? "Saving..." : "Save"}
@@ -173,7 +173,7 @@ function EditDocumentContent({ id }: { id: string }) {
               placeholder="Document Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border-0 border-b border-[#252B45] bg-transparent pb-2 text-2xl font-bold text-white placeholder-slate-600 outline-none focus:border-[#7C5CFC]/80 focus:ring-0 transition-colors"
+              className="w-full border-0 border-b border-[#1E2D47] bg-transparent pb-2 text-2xl font-bold text-white placeholder-slate-600 outline-none focus:border-[#0EA5E9]/80 focus:ring-0 transition-colors"
               autoFocus
             />
           </div>
@@ -189,8 +189,8 @@ function EditDocumentContent({ id }: { id: string }) {
 
         {/* Sidebar Info Panel */}
         <div className="space-y-6">
-          <Card className="border-[#252B45] bg-[#151A2D] p-5 text-white">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#252B45] pb-3 mb-4">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-5 text-white">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3 mb-4">
               Document Settings
             </h2>
 
@@ -199,13 +199,13 @@ function EditDocumentContent({ id }: { id: string }) {
               <div className="space-y-1.5">
                 <Label htmlFor="category-select" className="text-xs font-semibold text-slate-300">Category</Label>
                 <Select value={categoryId} onValueChange={(val) => setCategoryId(val || "none")}>
-                  <SelectTrigger id="category-select" className="w-full border-[#252B45] bg-[#0B1020] text-white">
+                  <SelectTrigger id="category-select" className="w-full border-[#1E2D47] bg-[#07090F] text-white">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
-                  <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
-                    <SelectItem value="none" className="hover:bg-[#252B45] focus:bg-[#252B45]">Uncategorized</SelectItem>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Uncategorized</SelectItem>
                     {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id} className="hover:bg-[#252B45] focus:bg-[#252B45]">
+                      <SelectItem key={cat.id} value={cat.id} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">
                         {cat.name}
                       </SelectItem>
                     ))}
@@ -221,7 +221,7 @@ function EditDocumentContent({ id }: { id: string }) {
                   value={version}
                   onChange={(e) => setVersion(e.target.value)}
                   placeholder="1.0"
-                  className="border-[#252B45] bg-[#0B1020] text-white focus:ring-[#7C5CFC]"
+                  className="border-[#1E2D47] bg-[#07090F] text-white focus:ring-[#0EA5E9]"
                 />
               </div>
 
@@ -232,20 +232,20 @@ function EditDocumentContent({ id }: { id: string }) {
                   value={status}
                   onValueChange={(val) => setStatus((val as "draft" | "published" | "archived") || "draft")}
                 >
-                  <SelectTrigger id="status-select" className="w-full border-[#252B45] bg-[#0B1020] text-white">
+                  <SelectTrigger id="status-select" className="w-full border-[#1E2D47] bg-[#07090F] text-white">
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
-                  <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
-                    <SelectItem value="draft" className="hover:bg-[#252B45] focus:bg-[#252B45]">Draft</SelectItem>
-                    <SelectItem value="published" className="hover:bg-[#252B45] focus:bg-[#252B45]">Published</SelectItem>
-                    <SelectItem value="archived" className="hover:bg-[#252B45] focus:bg-[#252B45]">Archived</SelectItem>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    <SelectItem value="draft" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Draft</SelectItem>
+                    <SelectItem value="published" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Published</SelectItem>
+                    <SelectItem value="archived" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Archived</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Additional Read-only Meta */}
               {!isNew && document && (
-                <div className="pt-3 border-t border-[#252B45]/50 space-y-2 text-xs text-slate-400">
+                <div className="pt-3 border-t border-[#1E2D47]/50 space-y-2 text-xs text-slate-400">
                   <div className="flex justify-between">
                     <span>Author:</span>
                     <span className="font-medium text-white">{document.creator?.full_name || "System"}</span>
@@ -268,7 +268,7 @@ function EditDocumentContent({ id }: { id: string }) {
             <Button
               onClick={() => handleSave("published")}
               disabled={isSaving}
-              className="w-full bg-[#7C5CFC] hover:bg-[#6847ea] text-white flex items-center justify-center gap-2 font-medium"
+              className="w-full bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center justify-center gap-2 font-medium"
             >
               <Globe className="h-4 w-4" />
               Publish Document
@@ -278,7 +278,7 @@ function EditDocumentContent({ id }: { id: string }) {
               onClick={() => handleSave("draft")}
               disabled={isSaving}
               variant="outline"
-              className="w-full border-[#252B45] bg-[#151A2D]/40 text-slate-200 hover:bg-[#252B45] flex items-center justify-center gap-2"
+              className="w-full border-[#1E2D47] bg-[#0F1629]/40 text-slate-200 hover:bg-[#1E2D47] flex items-center justify-center gap-2"
             >
               <Save className="h-4 w-4" />
               Save as Draft

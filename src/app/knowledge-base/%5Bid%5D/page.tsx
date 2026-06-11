@@ -146,12 +146,12 @@ function ViewDocumentContent({ id }: { id: string }) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-4">
-          <div className="h-9 w-9 rounded-full bg-[#151A2D] animate-pulse" />
-          <div className="h-8 w-64 rounded bg-[#151A2D] animate-pulse" />
+          <div className="h-9 w-9 rounded-full bg-[#0F1629] animate-pulse" />
+          <div className="h-8 w-64 rounded bg-[#0F1629] animate-pulse" />
         </div>
         <div className="grid gap-6 md:grid-cols-4">
-          <div className="md:col-span-3 h-96 rounded bg-[#151A2D] animate-pulse" />
-          <div className="h-96 rounded bg-[#151A2D] animate-pulse" />
+          <div className="md:col-span-3 h-96 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-96 rounded bg-[#0F1629] animate-pulse" />
         </div>
       </div>
     );
@@ -164,17 +164,17 @@ function ViewDocumentContent({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Top action header */}
-      <div className="flex items-center justify-between border-b border-[#252B45] pb-4">
+      <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/knowledge-base")}
-            className="text-slate-400 hover:text-white hover:bg-[#151A2D]"
+            className="text-slate-400 hover:text-white hover:bg-[#0F1629]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <span className="text-sm text-slate-500 hover:text-[#7C5CFC] transition-colors">
+          <span className="text-sm text-slate-500 hover:text-[#0EA5E9] transition-colors">
             <Link href="/knowledge-base">Knowledge Base</Link>
           </span>
           <span className="text-slate-600">/</span>
@@ -183,7 +183,7 @@ function ViewDocumentContent({ id }: { id: string }) {
         {user?.role !== "view" && (
           <Button
             onClick={() => router.push(`/knowledge-base/edit/${doc.id}`)}
-            className="bg-[#151A2D] hover:bg-[#252B45] text-slate-300 border border-[#252B45] hover:text-white flex items-center gap-1.5 font-medium transition-colors"
+            className="bg-[#0F1629] hover:bg-[#1E2D47] text-slate-300 border border-[#1E2D47] hover:text-white flex items-center gap-1.5 font-medium transition-colors"
           >
             <Edit2 className="h-4 w-4" />
             Edit Document
@@ -211,7 +211,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                   {doc.category.name}
                 </span>
               )}
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-[#151A2D] border border-[#252B45] text-slate-300">
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase bg-[#0F1629] border border-[#1E2D47] text-slate-300">
                 VERSION {doc.version}
               </span>
               {doc.status === "draft" && (
@@ -230,7 +230,7 @@ function ViewDocumentContent({ id }: { id: string }) {
               {doc.title}
             </h1>
 
-            <div className="flex items-center gap-2 text-xs text-[#94A3B8] border-b border-[#252B45]/50 pb-4">
+            <div className="flex items-center gap-2 text-xs text-[#94A3B8] border-b border-[#1E2D47]/50 pb-4">
               <span className="font-semibold text-slate-300">{doc.creator?.full_name || "System"}</span>
               <span>•</span>
               <span>Updated {formatRelativeTime(doc.updated_at)}</span>
@@ -245,7 +245,7 @@ function ViewDocumentContent({ id }: { id: string }) {
 
           {/* Acknowledgement System panel */}
           {doc.status === "published" && (
-            <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white mt-12 transition-all duration-300">
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white mt-12 transition-all duration-300">
               <h2 className="text-lg font-bold text-white mb-2">Document Acknowledgement</h2>
               <p className="text-xs text-[#94A3B8] mb-6">
                 Please read this document carefully. By checking the box below and submitting, you acknowledge that you have read, understood, and agreed to follow these procedures.
@@ -268,7 +268,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                       id="ack-checkbox"
                       checked={ackChecked}
                       onCheckedChange={(checked) => setAckChecked(Boolean(checked))}
-                      className="border-[#252B45] text-[#7C5CFC] bg-[#0b1020] focus:ring-[#7C5CFC] h-4.5 w-4.5 mt-0.5"
+                      className="border-[#1E2D47] text-[#0EA5E9] bg-[#07090F] focus:ring-[#0EA5E9] h-4.5 w-4.5 mt-0.5"
                     />
                     <label
                       htmlFor="ack-checkbox"
@@ -281,7 +281,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                   <Button
                     onClick={handleAcknowledge}
                     disabled={!ackChecked || isSubmittingAck}
-                    className="self-start bg-[#7C5CFC] hover:bg-[#6847ea] text-white font-medium"
+                    className="self-start bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium"
                   >
                     {isSubmittingAck ? "Submitting..." : "Submit Acknowledgement"}
                   </Button>
@@ -297,8 +297,8 @@ function ViewDocumentContent({ id }: { id: string }) {
             
             {/* Quick Analytics Summary */}
             {analytics && (
-              <Card className="border-[#252B45] bg-[#151A2D] p-5 text-white">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#252B45] pb-3 mb-4">
+              <Card className="border-[#1E2D47] bg-[#0F1629] p-5 text-white">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3 mb-4">
                   Document Analytics
                 </h2>
 
@@ -306,20 +306,20 @@ function ViewDocumentContent({ id }: { id: string }) {
                   <div>
                     <span className="text-xs text-slate-400">Total Views</span>
                     <p className="text-2xl font-extrabold text-white mt-1 flex items-center gap-1.5">
-                      <Eye className="h-4 w-4 text-[#6366F1]" />
+                      <Eye className="h-4 w-4 text-[#38BDF8]" />
                       {analytics.totalViews}
                     </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400">Unique Views</span>
                     <p className="text-2xl font-extrabold text-white mt-1 flex items-center gap-1.5">
-                      <UserIcon className="h-4 w-4 text-[#7C5CFC]" />
+                      <UserIcon className="h-4 w-4 text-[#0EA5E9]" />
                       {analytics.uniqueViews}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-[#252B45]/50">
+                <div className="mt-4 pt-4 border-t border-[#1E2D47]/50">
                   <span className="text-xs text-slate-400">Acknowledgements</span>
                   <p className="text-2xl font-extrabold text-[#22C55E] mt-1 flex items-center gap-1.5">
                     <CheckCircle className="h-4 w-4" />
@@ -330,8 +330,8 @@ function ViewDocumentContent({ id }: { id: string }) {
             )}
 
             {/* Assignments Sidebar Panel */}
-            <Card className="border-[#252B45] bg-[#151A2D] p-5 text-white">
-              <div className="flex items-center justify-between border-b border-[#252B45] pb-3 mb-4">
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-5 text-white">
+              <div className="flex items-center justify-between border-b border-[#1E2D47] pb-3 mb-4">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8]">
                   Assignments
                 </h2>
@@ -339,7 +339,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                   onClick={() => setAssignOpen(true)}
                   size="sm"
                   variant="ghost"
-                  className="h-6 px-2 text-xs text-[#7C5CFC] hover:bg-[#7C5CFC]/10"
+                  className="h-6 px-2 text-xs text-[#0EA5E9] hover:bg-[#0EA5E9]/10"
                 >
                   Assign
                 </Button>
@@ -352,7 +352,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                   assignments.map((assign) => (
                     <div
                       key={assign.id}
-                      className="text-xs p-2.5 rounded bg-[#0B1020] border border-[#252B45] space-y-1.5"
+                      className="text-xs p-2.5 rounded bg-[#07090F] border border-[#1E2D47] space-y-1.5"
                     >
                       <div className="flex items-center justify-between font-semibold">
                         <span className="text-slate-200">
@@ -385,8 +385,8 @@ function ViewDocumentContent({ id }: { id: string }) {
 
             {/* Read-Tracking Details Panel */}
             {analytics && (
-              <Card className="border-[#252B45] bg-[#151A2D] p-5 text-white">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#252B45] pb-3 mb-4">
+              <Card className="border-[#1E2D47] bg-[#0F1629] p-5 text-white">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3 mb-4">
                   Read Tracking Detail
                 </h2>
 
@@ -397,7 +397,7 @@ function ViewDocumentContent({ id }: { id: string }) {
                     analytics.views.map((v) => {
                       const isAcked = analytics.acknowledgements.some((a) => a.user_id === v.user_id);
                       return (
-                        <div key={v.id} className="flex items-start justify-between gap-2 text-xs pb-2 border-b border-[#252B45]/30 last:border-b-0 last:pb-0">
+                        <div key={v.id} className="flex items-start justify-between gap-2 text-xs pb-2 border-b border-[#1E2D47]/30 last:border-b-0 last:pb-0">
                           <div className="min-w-0">
                             <p className="font-semibold text-slate-200 truncate">
                               {v.user?.full_name || "Unknown"}

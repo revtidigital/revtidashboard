@@ -81,14 +81,14 @@ export function Topbar() {
   };
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-[#252B45] bg-[#0b1020]/80 px-6 backdrop-blur-md">
+    <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-[#1E2D47] bg-[#07090F]/80 px-6 backdrop-blur-md">
       {/* Mobile Drawer Trigger */}
       <div className="flex items-center gap-4 lg:hidden">
         <Sheet>
-          <SheetTrigger className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#94A3B8] hover:text-white hover:bg-[#151A2D] cursor-pointer outline-none">
+          <SheetTrigger className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#94A3B8] hover:text-white hover:bg-[#0F1629] cursor-pointer outline-none">
             <Menu className="h-6 w-6" />
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 border-[#252B45] bg-[#0B1020]">
+          <SheetContent side="left" className="w-64 p-0 border-[#1E2D47] bg-[#07090F]">
             <Sidebar className="w-full relative" />
           </SheetContent>
         </Sheet>
@@ -100,11 +100,11 @@ export function Topbar() {
         <Button
           variant="outline"
           onClick={() => setSearchOpen(true)}
-          className="w-full justify-start text-[#94A3B8] border-[#252B45] bg-[#151A2D]/40 hover:bg-[#151A2D]/80 hover:text-white"
+          className="w-full justify-start text-[#94A3B8] border-[#1E2D47] bg-[#0F1629]/40 hover:bg-[#0F1629]/80 hover:text-white"
         >
           <Search className="mr-2 h-4 w-4 shrink-0 text-[#94A3B8]" />
           <span>Search documents, SOPs, policies...</span>
-          <kbd className="pointer-events-none ml-auto inline-flex h-5 select-none items-center gap-1 rounded border border-[#252B45] bg-[#0b1020] px-1.5 font-mono text-[10px] font-medium text-[#94A3B8] opacity-100">
+          <kbd className="pointer-events-none ml-auto inline-flex h-5 select-none items-center gap-1 rounded border border-[#1E2D47] bg-[#07090F] px-1.5 font-mono text-[10px] font-medium text-[#94A3B8] opacity-100">
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
@@ -116,7 +116,7 @@ export function Topbar() {
           variant="ghost"
           size="icon"
           onClick={() => setSearchOpen(true)}
-          className="text-[#94A3B8] hover:text-white hover:bg-[#151A2D]"
+          className="text-[#94A3B8] hover:text-white hover:bg-[#0F1629]"
         >
           <Search className="h-5 w-5" />
         </Button>
@@ -126,8 +126,8 @@ export function Topbar() {
       <div className="flex items-center gap-4">
         {user && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 border border-[#252B45] bg-[#151A2D]/40 px-3 py-1.5 text-sm font-medium hover:bg-[#151A2D] text-white rounded-md cursor-pointer transition-colors outline-none">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFC]/20 text-[#7C5CFC]">
+            <DropdownMenuTrigger className="flex items-center gap-2 border border-[#1E2D47] bg-[#0F1629]/40 px-3 py-1.5 text-sm font-medium hover:bg-[#0F1629] text-white rounded-md cursor-pointer transition-colors outline-none">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0EA5E9]/20 text-[#0EA5E9]">
                 <UserIcon className="h-3.5 w-3.5" />
               </div>
               <div className="hidden sm:block text-left">
@@ -136,29 +136,29 @@ export function Topbar() {
               </div>
               <ChevronDown className="h-4 w-4 text-[#94A3B8]" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 border-[#252B45] bg-[#151A2D] text-white">
+            <DropdownMenuContent className="w-64 border-[#1E2D47] bg-[#0F1629] text-white">
               <div className="px-2.5 py-1.5 text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">ACTING PERSONA</div>
               <div className="px-2 py-1.5">
                 <p className="text-sm font-bold text-white">{user.full_name}</p>
                 <p className="text-xs text-[#94A3B8]">{user.email}</p>
-                <div className="mt-2 flex items-center gap-1.5 text-[10px] bg-[#0b1020] px-2 py-1 rounded border border-[#252B45] text-indigo-300">
-                  <Shield className="h-3.5 w-3.5 text-[#7C5CFC]" />
+                <div className="mt-2 flex items-center gap-1.5 text-[10px] bg-[#07090F] px-2 py-1 rounded border border-[#1E2D47] text-indigo-300">
+                  <Shield className="h-3.5 w-3.5 text-[#0EA5E9]" />
                   <span>{getRoleLabel(user.role)}</span>
                 </div>
               </div>
-              <DropdownMenuSeparator className="bg-[#252B45]" />
+              <DropdownMenuSeparator className="bg-[#1E2D47]" />
               <div className="px-2.5 py-1.5 text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">SWITCH PERSONA FOR TESTING</div>
               {users.map((u) => (
                 <DropdownMenuItem
                   key={u.id}
                   onClick={() => switchPersona(u.id)}
-                  className="flex items-center justify-between cursor-pointer hover:bg-[#252B45] focus:bg-[#252B45] text-white"
+                  className="flex items-center justify-between cursor-pointer hover:bg-[#1E2D47] focus:bg-[#1E2D47] text-white"
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">{u.full_name}</span>
                     <span className="text-[10px] text-[#94A3B8] capitalize">{u.role}</span>
                   </div>
-                  {u.id === user.id && <Check className="h-4 w-4 text-[#7C5CFC]" />}
+                  {u.id === user.id && <Check className="h-4 w-4 text-[#0EA5E9]" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -168,8 +168,8 @@ export function Topbar() {
 
       {/* Global Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="max-w-2xl border-[#252B45] bg-[#151A2D] p-0 text-white shadow-2xl">
-          <DialogHeader className="p-4 border-b border-[#252B45]">
+        <DialogContent className="max-w-2xl border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl">
+          <DialogHeader className="p-4 border-b border-[#1E2D47]">
             <DialogTitle className="sr-only">Search Workspace</DialogTitle>
             <div className="flex items-center gap-3">
               <Search className="h-5 w-5 text-[#94A3B8]" />
@@ -199,10 +199,10 @@ export function Topbar() {
                   <button
                     key={doc.id}
                     onClick={() => handleResultClick(doc.id)}
-                    className="w-full flex items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-[#252B45]"
+                    className="w-full flex items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-[#1E2D47]"
                   >
                     <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-[#7C5CFC]" />
+                      <FileText className="h-4 w-4 text-[#0EA5E9]" />
                       <div>
                         <p className="font-semibold text-white">{doc.title}</p>
                         <p className="text-xs text-[#94A3B8] truncate max-w-[400px]">

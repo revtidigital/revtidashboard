@@ -85,7 +85,7 @@ export function AssignDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-[#252B45] bg-[#151A2D] text-white">
+      <DialogContent className="sm:max-w-md border-[#1E2D47] bg-[#0F1629] text-white">
         <DialogHeader>
           <DialogTitle className="text-white text-lg font-bold">Assign Document</DialogTitle>
           <p className="text-xs text-[#94A3B8] mt-1.5">
@@ -100,13 +100,13 @@ export function AssignDialog({
               Assign to User
             </Label>
             <Select value={assignedTo} onValueChange={(val) => setAssignedTo(val || "none")}>
-              <SelectTrigger id="user-select" className="w-full border-[#252B45] bg-[#0B1020] text-white">
+              <SelectTrigger id="user-select" className="w-full border-[#1E2D47] bg-[#07090F] text-white">
                 <SelectValue placeholder="Select a user..." />
               </SelectTrigger>
-              <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
-                <SelectItem value="none" className="hover:bg-[#252B45] focus:bg-[#252B45]">Unassigned</SelectItem>
+              <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Unassigned</SelectItem>
                 {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id} className="hover:bg-[#252B45] focus:bg-[#252B45]">
+                  <SelectItem key={u.id} value={u.id} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">
                     {u.full_name} ({u.email.split("@")[0]})
                   </SelectItem>
                 ))}
@@ -120,13 +120,13 @@ export function AssignDialog({
               Assign to Department / Team
             </Label>
             <Select value={team} onValueChange={(val) => setTeam(val || "none")}>
-              <SelectTrigger id="team-select" className="w-full border-[#252B45] bg-[#0B1020] text-white">
+              <SelectTrigger id="team-select" className="w-full border-[#1E2D47] bg-[#07090F] text-white">
                 <SelectValue placeholder="Select a team..." />
               </SelectTrigger>
-              <SelectContent className="border-[#252B45] bg-[#151A2D] text-white">
-                <SelectItem value="none" className="hover:bg-[#252B45] focus:bg-[#252B45]">No Team</SelectItem>
+              <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">No Team</SelectItem>
                 {TEAMS.map((t) => (
-                  <SelectItem key={t} value={t} className="hover:bg-[#252B45] focus:bg-[#252B45]">{t}</SelectItem>
+                  <SelectItem key={t} value={t} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">{t}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -142,7 +142,7 @@ export function AssignDialog({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[#252B45] bg-[#0B1020] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#7C5CFC] focus:border-[#7C5CFC]"
+              className="flex h-10 w-full rounded-md border border-[#1E2D47] bg-[#07090F] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9] focus:border-[#0EA5E9]"
             />
           </div>
 
@@ -156,7 +156,7 @@ export function AssignDialog({
               placeholder="Provide context or guidelines for this assignment..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="border-[#252B45] bg-[#0B1020] text-white placeholder-slate-500 focus:ring-[#7C5CFC]"
+              className="border-[#1E2D47] bg-[#07090F] text-white placeholder-slate-500 focus:ring-[#0EA5E9]"
               rows={3}
             />
           </div>
@@ -166,14 +166,14 @@ export function AssignDialog({
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="border-[#252B45] text-slate-400 hover:bg-[#252B45] hover:text-white"
+              className="border-[#1E2D47] text-slate-400 hover:bg-[#1E2D47] hover:text-white"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || (assignedTo === "none" && team === "none")}
-              className="bg-[#7C5CFC] hover:bg-[#6847ea] text-white"
+              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white"
             >
               {isSubmitting ? "Assigning..." : "Assign"}
             </Button>

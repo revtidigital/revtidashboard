@@ -83,21 +83,21 @@ function DashboardContent() {
       <div className="flex flex-col gap-6">
         {/* Header Skeleton */}
         <div className="space-y-2">
-          <div className="h-8 w-48 rounded bg-[#151A2D] animate-pulse" />
-          <div className="h-4 w-96 rounded bg-[#151A2D] animate-pulse" />
+          <div className="h-8 w-48 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-4 w-96 rounded bg-[#0F1629] animate-pulse" />
         </div>
         
         {/* Stats Grid Skeleton */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-24 rounded bg-[#151A2D] animate-pulse" />
+            <div key={i} className="h-24 rounded bg-[#0F1629] animate-pulse" />
           ))}
         </div>
 
         {/* Content Columns Skeleton */}
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="h-80 md:col-span-2 rounded bg-[#151A2D] animate-pulse" />
-          <div className="h-80 rounded bg-[#151A2D] animate-pulse" />
+          <div className="h-80 md:col-span-2 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-80 rounded bg-[#0F1629] animate-pulse" />
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ function DashboardContent() {
       title: "Total Users",
       value: stats?.totalUsers ?? 0,
       icon: Users,
-      color: "text-[#7C5CFC] bg-[#7C5CFC]/10 border-[#7C5CFC]/20",
+      color: "text-[#0EA5E9] bg-[#0EA5E9]/10 border-[#0EA5E9]/20",
     },
   ];
 
@@ -156,7 +156,7 @@ function DashboardContent() {
           return (
             <Card
               key={index}
-              className="relative overflow-hidden border-[#252B45] bg-[#151A2D] p-5 text-white transition-all duration-300 hover:-translate-y-1 hover:border-[#7C5CFC]/50 hover:shadow-[0_4px_20px_-2px_rgba(124,92,252,0.15)]"
+              className="relative overflow-hidden border-[#1E2D47] bg-[#0F1629] p-5 text-white transition-all duration-300 hover:-translate-y-1 hover:border-[#0EA5E9]/50 hover:shadow-[0_4px_20px_-2px_rgba(124,92,252,0.15)]"
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
@@ -175,10 +175,10 @@ function DashboardContent() {
       {/* Main dashboard columns */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Left Column: Recent Activity Feed */}
-        <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white md:col-span-2">
-          <div className="flex items-center justify-between border-b border-[#252B45] pb-4">
+        <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white md:col-span-2">
+          <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
             <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#6366F1]" />
+              <Clock className="h-5 w-5 text-[#38BDF8]" />
               Recent Activity Feed
             </h2>
           </div>
@@ -195,19 +195,19 @@ function DashboardContent() {
                     <div className="relative pb-8">
                       {logIdx !== activities.length - 1 ? (
                         <span
-                          className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-[#252B45]"
+                          className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-[#1E2D47]"
                           aria-hidden="true"
                         />
                       ) : null}
                       <div className="relative flex space-x-3">
                         <div>
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1e253c] border border-[#252B45] text-slate-300">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#121E35] border border-[#1E2D47] text-slate-300">
                             {activity.action === "acknowledged" ? (
                               <UserCheck className="h-4 w-4 text-[#22C55E]" />
                             ) : activity.action === "created" ? (
-                              <Plus className="h-4 w-4 text-[#7C5CFC]" />
+                              <Plus className="h-4 w-4 text-[#0EA5E9]" />
                             ) : (
-                              <FileText className="h-4 w-4 text-[#6366F1]" />
+                              <FileText className="h-4 w-4 text-[#38BDF8]" />
                             )}
                           </span>
                         </div>
@@ -234,15 +234,15 @@ function DashboardContent() {
         {/* Right Column: Quick Actions & Personal Assignments */}
         <div className="flex flex-col gap-6">
           {/* Quick Actions Card */}
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white">
-            <h2 className="text-lg font-bold tracking-tight border-b border-[#252B45] pb-4">
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
+            <h2 className="text-lg font-bold tracking-tight border-b border-[#1E2D47] pb-4">
               Quick Actions
             </h2>
             <div className="mt-4 flex flex-col gap-3">
               {user?.role !== "view" && (
                 <Button
                   onClick={() => router.push("/knowledge-base/edit/new")}
-                  className="w-full justify-between bg-[#7C5CFC] hover:bg-[#6847ea] text-white font-medium transition-colors"
+                  className="w-full justify-between bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />
@@ -254,7 +254,7 @@ function DashboardContent() {
               <Button
                 onClick={() => router.push("/knowledge-base")}
                 variant="outline"
-                className="w-full justify-between border-[#252B45] bg-[#151A2D]/40 text-slate-200 hover:bg-[#252B45] hover:text-white transition-colors"
+                className="w-full justify-between border-[#1E2D47] bg-[#0F1629]/40 text-slate-200 hover:bg-[#1E2D47] hover:text-white transition-colors"
               >
                 <span className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -266,9 +266,9 @@ function DashboardContent() {
           </Card>
 
           {/* Assigned Documents */}
-          <Card className="border-[#252B45] bg-[#151A2D] p-6 text-white">
-            <h2 className="text-lg font-bold tracking-tight border-b border-[#252B45] pb-4 flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-[#7C5CFC]" />
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
+            <h2 className="text-lg font-bold tracking-tight border-b border-[#1E2D47] pb-4 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-[#0EA5E9]" />
               Assigned to You
             </h2>
             <div className="mt-4 space-y-3">
@@ -281,10 +281,10 @@ function DashboardContent() {
                   <Link
                     key={doc.id}
                     href={`/knowledge-base/${doc.id}`}
-                    className="group flex items-start justify-between p-2.5 rounded-md hover:bg-[#252B45]/50 border border-transparent hover:border-[#252B45] transition-all"
+                    className="group flex items-start justify-between p-2.5 rounded-md hover:bg-[#1E2D47]/50 border border-transparent hover:border-[#1E2D47] transition-all"
                   >
                     <div className="flex flex-col min-w-0 pr-2">
-                      <span className="text-sm font-semibold truncate group-hover:text-[#7C5CFC] transition-colors">
+                      <span className="text-sm font-semibold truncate group-hover:text-[#0EA5E9] transition-colors">
                         {doc.title}
                       </span>
                       {doc.category && (
