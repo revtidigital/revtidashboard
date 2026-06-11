@@ -12,6 +12,8 @@ import {
   DocumentAnalytics,
   DashboardStats,
   UserRole,
+  Credential,
+  CredentialCategory,
 } from "./api";
 
 // -------------------------------------------------------------
@@ -159,6 +161,33 @@ const MOCK_VIEWS: DocumentView[] = [
   },
 ];
 
+const MOCK_CREDENTIALS: Credential[] = [
+  {
+    id: "cred-1",
+    label: "GoDaddy Hosting",
+    category: "hosting",
+    username: "revtidigital@gmail.com",
+    password: "demo_password_123",
+    url: "https://sso.godaddy.com",
+    notes: "Main hosting account for all client sites",
+    created_by: "user-1",
+    created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "cred-2",
+    label: "Vercel Account",
+    category: "hosting",
+    username: "revtidigital@gmail.com",
+    password: "demo_vercel_token",
+    url: "https://vercel.com/login",
+    notes: "Used for Next.js deployments",
+    created_by: "user-1",
+    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 const MOCK_ACTIVITY_LOGS: ActivityLog[] = [
   {
     id: "log-1",
@@ -223,6 +252,7 @@ export class MockService implements IWorkspaceService {
   private static KEY_VIEWS = "revti_views";
   private static KEY_ACTIVITY_LOGS = "revti_activity_logs";
   private static KEY_ATTACHMENTS = "revti_attachments";
+  private static KEY_CREDENTIALS = "revti_credentials";
 
   constructor() {
     // Seed initial values if empty
@@ -235,6 +265,7 @@ export class MockService implements IWorkspaceService {
       StorageManager.get(MockService.KEY_VIEWS, MOCK_VIEWS);
       StorageManager.get(MockService.KEY_ACTIVITY_LOGS, MOCK_ACTIVITY_LOGS);
       StorageManager.get(MockService.KEY_ATTACHMENTS, [] as Attachment[]);
+      StorageManager.get(MockService.KEY_CREDENTIALS, MOCK_CREDENTIALS);
       
       const currentUserId = localStorage.getItem(MockService.KEY_CURRENT_USER_ID);
       if (!currentUserId) {
@@ -681,7 +712,7 @@ export class MockService implements IWorkspaceService {
   async getDashboardStats(): Promise<DashboardStats> {
     const docs = StorageManager.get(MockService.KEY_DOCUMENTS, MOCK_DOCUMENTS);
     const users = StorageManager.get(MockService.KEY_USERS, MOCK_USERS);
-    
+
     return {
       totalDocuments: docs.length,
       publishedDocuments: docs.filter((d) => d.status === "published").length,
@@ -689,5 +720,40 @@ export class MockService implements IWorkspaceService {
       archivedDocuments: docs.filter((d) => d.status === "archived").length,
       totalUsers: users.length,
     };
+  }
+
+  // -------------------------------------------------------------
+  // Credentials Vault
+  // -------------------------------------------------------------
+  async getCredentials(): Promise<Credential[]> {
+    return StorageManager.get(MockService.KEY_CREDENTIALS, MOCK_CREDENTIALS);
+  }
+
+  async createCredential(data: Omit<Credential, "id" | "created_at" | "updated_at">): Promise<Credential> {
+    const credentials = await this.getCredentials();
+    const now = new Date().toISOString();
+    const newCred: Credential = {
+      id: `cred-${Date.now()}`,
+      ...data,
+      created_at: now,
+      updated_at: now,
+    };
+    credentials.push(newCred);
+    StorageManager.set(MockService.KEY_CREDENTIALS, credentials);
+    return newCred;
+  }
+
+  async updateCredential(id: string, data: Partial<Credential>): Promise<Credential> {
+    const credentials = await this.getCredentials();
+    const index = credentials.findIndex((c) => c.id === id);
+    if (index === -1) throw new Error("Credential not found");
+    credentials[index] = { ...credentials[index], ...data, updated_at: new Date().toISOString() };
+    StorageManager.set(MockService.KEY_CREDENTIALS, credentials);
+    return credentials[index];
+  }
+
+  async deleteCredential(id: string): Promise<void> {
+    const credentials = await this.getCredentials();
+    StorageManager.set(MockService.KEY_CREDENTIALS, credentials.filter((c) => c.id !== id));
   }
 }

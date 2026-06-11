@@ -104,6 +104,29 @@ export interface DashboardStats {
   totalUsers: number;
 }
 
+export type CredentialCategory =
+  | "hosting"
+  | "domain"
+  | "cms"
+  | "database"
+  | "email"
+  | "social"
+  | "api"
+  | "other";
+
+export interface Credential {
+  id: string;
+  label: string;
+  category: CredentialCategory;
+  username: string | null;
+  password: string | null;
+  url: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface IWorkspaceService {
   // Authentication / User Persona management
   getCurrentUser(): Promise<User>;
@@ -150,6 +173,12 @@ export interface IWorkspaceService {
 
   // Dashboard Stats
   getDashboardStats(): Promise<DashboardStats>;
+
+  // Credentials Vault
+  getCredentials(): Promise<Credential[]>;
+  createCredential(data: Omit<Credential, "id" | "created_at" | "updated_at">): Promise<Credential>;
+  updateCredential(id: string, data: Partial<Credential>): Promise<Credential>;
+  deleteCredential(id: string): Promise<void>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

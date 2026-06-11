@@ -288,3 +288,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- -------------------------------------------------------------
+-- Credentials Vault Table
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS credentials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    label TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'other' CHECK (category IN ('hosting','domain','cms','database','email','social','api','other')),
+    username TEXT,
+    password TEXT,
+    url TEXT,
+    notes TEXT,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER update_credentials_updated_at
+    BEFORE UPDATE ON credentials
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE credentials ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read credentials
+CREATE POLICY "Enable read credentials for all authenticated"
+    ON credentials FOR SELECT
+    TO authenticated
+    USING (true);
+
+-- Only admins can insert/update/delete credentials
+CREATE POLICY "Enable write credentials for admins only"
+    ON credentials FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());

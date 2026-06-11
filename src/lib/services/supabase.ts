@@ -13,6 +13,7 @@ import {
   DocumentAnalytics,
   DashboardStats,
   UserRole,
+  Credential,
 } from "./api";
 
 export class SupabaseService implements IWorkspaceService {
@@ -547,5 +548,44 @@ export class SupabaseService implements IWorkspaceService {
       archivedDocuments,
       totalUsers,
     };
+  }
+
+  // -------------------------------------------------------------
+  // Credentials Vault
+  // -------------------------------------------------------------
+  async getCredentials(): Promise<Credential[]> {
+    const { data, error } = await this.client
+      .from("credentials")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createCredential(data: Omit<Credential, "id" | "created_at" | "updated_at">): Promise<Credential> {
+    const currentUser = await this.getCurrentUser();
+    const { data: newCred, error } = await this.client
+      .from("credentials")
+      .insert({ ...data, created_by: currentUser.id })
+      .select()
+      .single();
+    if (error) throw error;
+    return newCred;
+  }
+
+  async updateCredential(id: string, data: Partial<Credential>): Promise<Credential> {
+    const { data: updated, error } = await this.client
+      .from("credentials")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
+  async deleteCredential(id: string): Promise<void> {
+    const { error } = await this.client.from("credentials").delete().eq("id", id);
+    if (error) throw error;
   }
 }
