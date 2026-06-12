@@ -18,6 +18,7 @@ import {
   Share2,
   Tag,
   StickyNote,
+  AlertCircle,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -61,6 +62,7 @@ function CredentialsContent() {
     created_by: null,
   });
   const [isSavingCred, setIsSavingCred] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -84,6 +86,7 @@ function CredentialsContent() {
 
   const handleSaveCredential = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!isAdmin || !credForm.label.trim()) return;
     setIsSavingCred(true);
     try {
@@ -112,8 +115,9 @@ function CredentialsContent() {
       setRecoveryFile(null);
       setShowCredForm(false);
       loadCredentialsData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save credential:", err);
+      setErrorMsg(err.message || "Failed to save credential. Please try again.");
     } finally {
       setIsSavingCred(false);
     }
@@ -126,8 +130,9 @@ function CredentialsContent() {
       const service = getWorkspaceService();
       await service.deleteCredential(id);
       loadCredentialsData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete credential:", err);
+      alert(err.message || "Failed to delete credential.");
     }
   };
 
@@ -171,7 +176,10 @@ function CredentialsContent() {
         </div>
         {isAdmin && (
           <Button
-            onClick={() => setShowCredForm((v) => !v)}
+            onClick={() => {
+              setErrorMsg(null);
+              setShowCredForm((v) => !v);
+            }}
             className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center gap-2 font-medium"
           >
             <Plus className="h-4 w-4" />
@@ -187,6 +195,12 @@ function CredentialsContent() {
             <Plus className="h-4 w-4 text-[#0EA5E9]" />
             New Credential
           </h3>
+          {errorMsg && (
+            <div className="mb-4 flex items-start gap-2 p-3 rounded bg-red-500/10 border border-red-500/20 text-xs text-[#EF4444]">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
           <form onSubmit={handleSaveCredential} className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-300">Label *</Label>
@@ -296,6 +310,7 @@ function CredentialsContent() {
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  setErrorMsg(null);
                   setRecoveryFile(null);
                   setShowCredForm(false);
                 }}

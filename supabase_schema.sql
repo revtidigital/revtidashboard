@@ -349,6 +349,7 @@ CREATE TABLE IF NOT EXISTS task_reminders (
     description TEXT,
     interval_type TEXT NOT NULL CHECK (interval_type IN ('weekly', 'monthly', 'date')),
     interval_value TEXT NOT NULL,
+    frequency INTEGER NOT NULL DEFAULT 1,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

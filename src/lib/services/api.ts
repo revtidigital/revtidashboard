@@ -140,6 +140,7 @@ export interface TaskReminder {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  frequency?: number;
 }
 
 export interface IWorkspaceService {

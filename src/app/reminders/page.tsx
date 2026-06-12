@@ -12,6 +12,7 @@ import {
   CheckCircle,
   AlertTriangle,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -55,8 +56,10 @@ function RemindersContent() {
   
   // Date specific state
   const [selectedDate, setSelectedDate] = useState("");
+  const [frequency, setFrequency] = useState("1");
 
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadRemindersData = async () => {
     try {
@@ -84,6 +87,7 @@ function RemindersContent() {
 
   const handleSaveReminder = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!isAuthorized || !websiteName.trim()) return;
     setIsSaving(true);
 
@@ -114,6 +118,7 @@ function RemindersContent() {
         description: description.trim(),
         interval_type: intervalType,
         interval_value: intervalValue,
+        frequency: intervalType === "date" ? 1 : parseInt(frequency, 10),
         created_by: user?.id || null,
       });
 
@@ -125,11 +130,13 @@ function RemindersContent() {
       setSelectedDays([]);
       setSelectedDayOfMonth("1");
       setSelectedDate("");
+      setFrequency("1");
       setShowAddForm(false);
 
       loadRemindersData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save reminder:", err);
+      setErrorMsg(err.message || "Failed to save task reminder. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -142,14 +149,17 @@ function RemindersContent() {
       const service = getWorkspaceService();
       await service.deleteTaskReminder(id);
       loadRemindersData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete task reminder:", err);
+      alert(err.message || "Failed to delete task reminder.");
     }
   };
 
   const getScheduleText = (reminder: TaskReminder) => {
+    const freq = reminder.frequency || 1;
     if (reminder.interval_type === "weekly") {
-      return `Every weekly on ${reminder.interval_value}`;
+      const freqText = freq === 1 ? "Every week" : `Every ${freq} weeks`;
+      return `${freqText} on ${reminder.interval_value}`;
     } else if (reminder.interval_type === "monthly") {
       // ordinal suffix (e.g. 1st, 2nd, 3rd, 4th)
       const dayNum = parseInt(reminder.interval_value, 10);
@@ -158,7 +168,12 @@ function RemindersContent() {
       else if (dayNum === 2 || dayNum === 22) suffix = "nd";
       else if (dayNum === 3 || dayNum === 23) suffix = "rd";
       
-      return `Every monthly on the ${dayNum}${suffix}`;
+      let freqText = freq === 1 ? "Every month" : `Every ${freq} months`;
+      if (freq === 3) freqText = "Every 3 months (Quarterly)";
+      else if (freq === 6) freqText = "Every 6 months (Semi-Annually)";
+      else if (freq === 12) freqText = "Every 12 months (Annually)";
+
+      return `${freqText} on the ${dayNum}${suffix}`;
     } else if (reminder.interval_type === "date") {
       const formattedDate = new Date(reminder.interval_value).toLocaleDateString("en-US", {
         month: "long",
@@ -196,7 +211,11 @@ function RemindersContent() {
         </div>
         {isAuthorized && (
           <Button
-            onClick={() => setShowAddForm((v) => !v)}
+            onClick={() => {
+              setErrorMsg(null);
+              setFrequency("1");
+              setShowAddForm((v) => !v);
+            }}
             className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white flex items-center gap-2 font-medium"
           >
             <Plus className="h-4 w-4" />
@@ -217,6 +236,12 @@ function RemindersContent() {
               <X className="h-4 w-4" />
             </button>
           </div>
+          {errorMsg && (
+            <div className="mb-4 flex items-start gap-2 p-3 rounded bg-red-500/10 border border-red-500/20 text-xs text-[#EF4444]">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSaveReminder} className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -257,21 +282,62 @@ function RemindersContent() {
             </div>
 
             {/* Interval Configuration */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-300">Interval / Recurrence</Label>
-              <Select
-                value={intervalType}
-                onValueChange={(val) => val && setIntervalType(val as "weekly" | "monthly" | "date")}
-              >
-                <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="date">Specific Date</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Interval / Recurrence</Label>
+                <Select
+                  value={intervalType}
+                  onValueChange={(val) => {
+                    if (val) {
+                      setIntervalType(val as "weekly" | "monthly" | "date");
+                      if (val === "date") setFrequency("1");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="date">Specific Date</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {intervalType !== "date" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">Frequency</Label>
+                  <Select
+                    value={frequency}
+                    onValueChange={(val) => val && setFrequency(val)}
+                  >
+                    <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    {intervalType === "weekly" ? (
+                      <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                        <SelectItem value="1">Every week</SelectItem>
+                        <SelectItem value="2">Every 2 weeks</SelectItem>
+                        <SelectItem value="3">Every 3 weeks</SelectItem>
+                        <SelectItem value="4">Every 4 weeks</SelectItem>
+                        <SelectItem value="6">Every 6 weeks</SelectItem>
+                        <SelectItem value="8">Every 8 weeks</SelectItem>
+                        <SelectItem value="12">Every 12 weeks</SelectItem>
+                      </SelectContent>
+                    ) : (
+                      <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                        <SelectItem value="1">Every month</SelectItem>
+                        <SelectItem value="2">Every 2 months</SelectItem>
+                        <SelectItem value="3">Every 3 months (Quarterly)</SelectItem>
+                        <SelectItem value="4">Every 4 months</SelectItem>
+                        <SelectItem value="6">Every 6 months (Semi-Annually)</SelectItem>
+                        <SelectItem value="12">Every 12 months (Annually)</SelectItem>
+                      </SelectContent>
+                    )}
+                  </Select>
+                </div>
+              )}
             </div>
 
             {/* Conditional Sub-Interval Forms */}
@@ -346,7 +412,11 @@ function RemindersContent() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setErrorMsg(null);
+                  setFrequency("1");
+                  setShowAddForm(false);
+                }}
                 className="border-[#1E2D47] text-slate-300 hover:bg-[#1E2D47]"
               >
                 Cancel
