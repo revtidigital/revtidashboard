@@ -176,11 +176,21 @@ CREATE POLICY "Enable update for users on their own profile"
     USING (auth.uid() = id)
     WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Enable write access for admin users"
-    ON users FOR INSERT, UPDATE, DELETE
+CREATE POLICY "Enable insert access for admin users"
+    ON users FOR INSERT
+    TO authenticated
+    WITH CHECK (public.is_admin());
+
+CREATE POLICY "Enable update access for admin users"
+    ON users FOR UPDATE
     TO authenticated
     USING (public.is_admin())
     WITH CHECK (public.is_admin());
+
+CREATE POLICY "Enable delete access for admin users"
+    ON users FOR DELETE
+    TO authenticated
+    USING (public.is_admin());
 
 -- 2. Policies for 'document_categories'
 CREATE POLICY "Enable read for all authenticated users"
