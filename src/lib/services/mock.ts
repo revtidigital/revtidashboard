@@ -808,6 +808,15 @@ export class MockService implements IWorkspaceService {
     return newReminder;
   }
 
+  async updateTaskReminder(id: string, data: Partial<TaskReminder>): Promise<TaskReminder> {
+    const reminders = await this.getTaskReminders();
+    const index = reminders.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error("Task reminder not found");
+    reminders[index] = { ...reminders[index], ...data, updated_at: new Date().toISOString() };
+    StorageManager.set(MockService.KEY_REMINDERS, reminders);
+    return reminders[index];
+  }
+
   async deleteTaskReminder(id: string): Promise<void> {
     const reminders = await this.getTaskReminders();
     StorageManager.set(MockService.KEY_REMINDERS, reminders.filter((r) => r.id !== id));

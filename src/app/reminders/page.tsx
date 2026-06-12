@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   X,
   AlertCircle,
+  Circle,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -27,6 +28,54 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const getNextOccurrenceDate = (reminder: TaskReminder): Date => {
+  const now = new Date();
+  
+  if (reminder.interval_type === "date") {
+    return new Date(reminder.interval_value);
+  }
+  
+  if (reminder.interval_type === "weekly") {
+    const days = reminder.interval_value.split(",");
+    const dayMap: Record<string, number> = {
+      "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6
+    };
+    
+    let minDiff = 8;
+    let nextDate = new Date();
+    
+    days.forEach(day => {
+      const targetDayNum = dayMap[day.trim()];
+      if (targetDayNum !== undefined) {
+        const currentDayNum = now.getDay();
+        let diff = targetDayNum - currentDayNum;
+        if (diff < 0) {
+          diff += 7;
+        }
+        if (diff < minDiff) {
+          minDiff = diff;
+          const target = new Date();
+          target.setDate(now.getDate() + diff);
+          target.setHours(0, 0, 0, 0);
+          nextDate = target;
+        }
+      }
+    });
+    return nextDate;
+  }
+  
+  if (reminder.interval_type === "monthly") {
+    const dayOfMonth = parseInt(reminder.interval_value, 10);
+    const targetDate = new Date(now.getFullYear(), now.getMonth(), dayOfMonth, 0, 0, 0, 0);
+    if (targetDate.getTime() < now.getTime()) {
+      targetDate.setMonth(targetDate.getMonth() + 1);
+    }
+    return targetDate;
+  }
+  
+  return new Date(8640000000000000); // far future
+};
 
 export default function RemindersPage() {
   return (
@@ -152,6 +201,20 @@ function RemindersContent() {
     } catch (err: any) {
       console.error("Failed to delete task reminder:", err);
       alert(err.message || "Failed to delete task reminder.");
+    }
+  };
+
+  const handleToggleComplete = async (reminder: TaskReminder) => {
+    if (!isAuthorized) return;
+    try {
+      const service = getWorkspaceService();
+      await service.updateTaskReminder(reminder.id, {
+        is_completed: !reminder.is_completed
+      });
+      loadRemindersData();
+    } catch (err: any) {
+      console.error("Failed to toggle completion status:", err);
+      alert(err.message || "Failed to update completion status.");
     }
   };
 
@@ -435,7 +498,15 @@ function RemindersContent() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {reminders.map((rem) => {
+          {[...reminders]
+            .sort((a, b) => {
+              if (a.is_completed && !b.is_completed) return 1;
+              if (!a.is_completed && b.is_completed) return -1;
+              const dateA = getNextOccurrenceDate(a).getTime();
+              const dateB = getNextOccurrenceDate(b).getTime();
+              return dateA - dateB;
+            })
+            .map((rem) => {
             const isWeekly = rem.interval_type === "weekly";
             const isMonthly = rem.interval_type === "monthly";
             
@@ -461,11 +532,26 @@ function RemindersContent() {
                 {/* Header info */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="flex-shrink-0 rounded-md border border-[#1E2D47] bg-[#07090F] p-2 text-slate-400">
-                      <Globe className="h-4 w-4 text-[#38BDF8]" />
-                    </span>
+                    <button
+                      onClick={() => handleToggleComplete(rem)}
+                      disabled={!isAuthorized}
+                      className={`flex-shrink-0 rounded-md border p-2 transition-all ${
+                        rem.is_completed
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                          : "border-[#1E2D47] bg-[#07090F] text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30"
+                      }`}
+                      title={rem.is_completed ? "Mark Incomplete" : "Mark Complete"}
+                    >
+                      {rem.is_completed ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : (
+                        <Circle className="h-4 w-4" />
+                      )}
+                    </button>
                     <div className="min-w-0">
-                      <p className="font-bold text-sm text-white truncate">{rem.website_name}</p>
+                      <p className={`font-bold text-sm truncate ${rem.is_completed ? "text-slate-400 line-through" : "text-white"}`}>
+                        {rem.website_name}
+                      </p>
                       <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${typeColor}`}>
                         {rem.task_type}
                       </span>

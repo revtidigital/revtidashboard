@@ -141,6 +141,7 @@ export interface TaskReminder {
   created_at: string;
   updated_at: string;
   frequency?: number;
+  is_completed?: boolean;
 }
 
 export interface IWorkspaceService {
@@ -200,6 +201,7 @@ export interface IWorkspaceService {
   // Task Reminders
   getTaskReminders(): Promise<TaskReminder[]>;
   createTaskReminder(data: Omit<TaskReminder, "id" | "created_at" | "updated_at">): Promise<TaskReminder>;
+  updateTaskReminder(id: string, data: Partial<TaskReminder>): Promise<TaskReminder>;
   deleteTaskReminder(id: string): Promise<void>;
 }
 

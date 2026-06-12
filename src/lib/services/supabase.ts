@@ -643,6 +643,17 @@ export class SupabaseService implements IWorkspaceService {
     return newReminder;
   }
 
+  async updateTaskReminder(id: string, data: Partial<TaskReminder>): Promise<TaskReminder> {
+    const { data: updated, error } = await this.client
+      .from("task_reminders")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
   async deleteTaskReminder(id: string): Promise<void> {
     const { error } = await this.client
       .from("task_reminders")
