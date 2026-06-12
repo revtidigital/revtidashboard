@@ -176,8 +176,8 @@ CREATE POLICY "Enable update for users on their own profile"
     USING (auth.uid() = id)
     WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Enable full access for admin users"
-    ON users FOR ALL
+CREATE POLICY "Enable write access for admin users"
+    ON users FOR INSERT, UPDATE, DELETE
     TO authenticated
     USING (public.is_admin())
     WITH CHECK (public.is_admin());
