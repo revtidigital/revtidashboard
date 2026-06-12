@@ -89,6 +89,7 @@ function SettingsContent() {
 
   // Credential Form
   const [showCredForm, setShowCredForm] = useState(false);
+  const [recoveryFile, setRecoveryFile] = useState<File | null>(null);
   const [credForm, setCredForm] = useState<Omit<Credential, "id" | "created_at" | "updated_at">>({
     label: "",
     category: "hosting",
@@ -96,6 +97,9 @@ function SettingsContent() {
     password: "",
     url: "",
     notes: "",
+    recovery_codes: "",
+    recovery_file_name: "",
+    recovery_file_path: "",
     created_by: null,
   });
   const [isSavingCred, setIsSavingCred] = useState(false);
@@ -155,8 +159,28 @@ function SettingsContent() {
     setIsSavingCred(true);
     try {
       const service = getWorkspaceService();
-      await service.createCredential({ ...credForm, created_by: user?.id || null });
-      setCredForm({ label: "", category: "hosting", username: "", password: "", url: "", notes: "", created_by: null });
+      let updatedForm = { ...credForm };
+
+      if (recoveryFile) {
+        const fileData = await service.uploadCredentialFile(recoveryFile);
+        updatedForm.recovery_file_name = fileData.fileName;
+        updatedForm.recovery_file_path = fileData.filePath;
+      }
+
+      await service.createCredential({ ...updatedForm, created_by: user?.id || null });
+      setCredForm({ 
+        label: "", 
+        category: "hosting", 
+        username: "", 
+        password: "", 
+        url: "", 
+        notes: "", 
+        recovery_codes: "",
+        recovery_file_name: "",
+        recovery_file_path: "",
+        created_by: null 
+      });
+      setRecoveryFile(null);
       setShowCredForm(false);
       loadSettingsData();
     } catch (err) {
@@ -785,6 +809,34 @@ function SettingsContent() {
                       className="border-[#1E2D47] bg-[#07090F] text-white"
                     />
                   </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-slate-300">Recovery Codes (Optional)</Label>
+                    <textarea
+                      placeholder="Paste recovery codes / 2FA backup codes here..."
+                      value={credForm.recovery_codes || ""}
+                      onChange={(e) => setCredForm((f) => ({ ...f, recovery_codes: e.target.value }))}
+                      className="w-full min-h-[80px] rounded-md border border-[#1E2D47] bg-[#07090F] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9]"
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-semibold text-slate-300">Backup Codes File (Optional)</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        onChange={(e) => setRecoveryFile(e.target.files?.[0] || null)}
+                        className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#1E2D47] file:text-white hover:file:bg-[#252B45] cursor-pointer"
+                      />
+                      {recoveryFile && (
+                        <button
+                          type="button"
+                          onClick={() => setRecoveryFile(null)}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Remove File
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <div className="sm:col-span-2 flex gap-3 pt-2">
                     <Button
                       type="submit"
@@ -953,6 +1005,58 @@ function SettingsContent() {
                           <div className="p-2 rounded bg-[#07090F] border border-[#1E2D47]">
                             <p className="text-[#94A3B8] text-[10px] uppercase tracking-wider mb-0.5">Notes</p>
                             <p className="text-slate-300 text-[11px] leading-relaxed">{cred.notes}</p>
+                          </div>
+                        )}
+
+                        {cred.recovery_codes && (
+                          <div className="flex items-center justify-between gap-2 p-2 rounded bg-[#07090F] border border-[#1E2D47]">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[#94A3B8] text-[10px] uppercase tracking-wider mb-0.5">Recovery Codes</p>
+                              <p className={`font-mono text-slate-200 truncate ${!revealedIds.has(`${cred.id}-recovery`) ? "blur-sm select-none" : ""}`}>
+                                {cred.recovery_codes}
+                              </p>
+                            </div>
+                            <div className="flex-shrink-0 flex items-center gap-1">
+                              <button
+                                onClick={() => toggleReveal(`${cred.id}-recovery`)}
+                                className="p-1.5 rounded hover:bg-[#1E2D47] text-[#94A3B8] hover:text-white transition-colors"
+                                title={revealedIds.has(`${cred.id}-recovery`) ? "Hide" : "Show"}
+                              >
+                                {revealedIds.has(`${cred.id}-recovery`) ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(cred.recovery_codes!, `${cred.id}-recovery-copy`)}
+                                className="p-1.5 rounded hover:bg-[#1E2D47] text-[#94A3B8] hover:text-white transition-colors"
+                                title="Copy"
+                              >
+                                {copiedKey === `${cred.id}-recovery-copy` ? (
+                                  <CheckCircle className="h-3.5 w-3.5 text-[#22C55E]" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {cred.recovery_file_path && (
+                          <div className="flex items-center justify-between gap-2 p-2 rounded bg-[#07090F] border border-[#1E2D47]">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[#94A3B8] text-[10px] uppercase tracking-wider mb-0.5">Backup Codes File</p>
+                              <p className="font-semibold text-white truncate text-[11px]">{cred.recovery_file_name || "backup_codes"}</p>
+                            </div>
+                            <div className="flex-shrink-0 flex items-center gap-1">
+                              <a
+                                href={cred.recovery_file_path}
+                                download={cred.recovery_file_name || "backup-codes"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded hover:bg-[#1E2D47] text-[#0EA5E9] hover:text-[#38BDF8] transition-colors"
+                                title="Download File"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
                           </div>
                         )}
                       </div>

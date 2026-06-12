@@ -756,4 +756,20 @@ export class MockService implements IWorkspaceService {
     const credentials = await this.getCredentials();
     StorageManager.set(MockService.KEY_CREDENTIALS, credentials.filter((c) => c.id !== id));
   }
+
+  async uploadCredentialFile(file: File): Promise<{ fileName: string, filePath: string }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          fileName: file.name,
+          filePath: reader.result as string,
+        });
+      };
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 }

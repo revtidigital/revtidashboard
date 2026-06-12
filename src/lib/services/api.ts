@@ -125,6 +125,9 @@ export interface Credential {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  recovery_codes?: string | null;
+  recovery_file_name?: string | null;
+  recovery_file_path?: string | null;
 }
 
 export interface IWorkspaceService {
@@ -179,6 +182,7 @@ export interface IWorkspaceService {
   createCredential(data: Omit<Credential, "id" | "created_at" | "updated_at">): Promise<Credential>;
   updateCredential(id: string, data: Partial<Credential>): Promise<Credential>;
   deleteCredential(id: string): Promise<void>;
+  uploadCredentialFile(file: File): Promise<{ fileName: string, filePath: string }>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

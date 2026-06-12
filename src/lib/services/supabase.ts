@@ -585,7 +585,40 @@ export class SupabaseService implements IWorkspaceService {
   }
 
   async deleteCredential(id: string): Promise<void> {
+    const { data: cred } = await this.client
+      .from("credentials")
+      .select("recovery_file_path")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (cred?.recovery_file_path) {
+      const pathParts = cred.recovery_file_path.split("/attachments/public/");
+      const bucketPath = pathParts[1] || cred.recovery_file_path;
+      if (bucketPath.startsWith("credentials/")) {
+        await this.client.storage.from("attachments").remove([bucketPath]);
+      }
+    }
+
     const { error } = await this.client.from("credentials").delete().eq("id", id);
     if (error) throw error;
+  }
+
+  async uploadCredentialFile(file: File): Promise<{ fileName: string, filePath: string }> {
+    const fileExt = file.name.split(".").pop();
+    const filePath = `credentials/${Math.random()}_${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await this.client.storage
+      .from("attachments")
+      .upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = this.client.storage
+      .from("attachments")
+      .getPublicUrl(filePath);
+
+    return {
+      fileName: file.name,
+      filePath: publicUrl,
+    };
   }
 }

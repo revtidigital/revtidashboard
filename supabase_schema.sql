@@ -311,6 +311,9 @@ CREATE TABLE IF NOT EXISTS credentials (
     password TEXT,
     url TEXT,
     notes TEXT,
+    recovery_codes TEXT,
+    recovery_file_name TEXT,
+    recovery_file_path TEXT,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
