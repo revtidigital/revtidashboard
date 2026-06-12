@@ -14,6 +14,7 @@ import {
   UserRole,
   Credential,
   CredentialCategory,
+  TaskReminder,
 } from "./api";
 
 // -------------------------------------------------------------
@@ -188,6 +189,20 @@ const MOCK_CREDENTIALS: Credential[] = [
   },
 ];
 
+const MOCK_REMINDERS: TaskReminder[] = [
+  {
+    id: "reminder-1",
+    website_name: "Revti Digital Staging",
+    task_type: "Website Maintenance",
+    description: "Perform monthly server package updates and plugin audits.",
+    interval_type: "monthly",
+    interval_value: "1",
+    created_by: "user-1",
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  }
+];
+
 const MOCK_ACTIVITY_LOGS: ActivityLog[] = [
   {
     id: "log-1",
@@ -253,6 +268,7 @@ export class MockService implements IWorkspaceService {
   private static KEY_ACTIVITY_LOGS = "revti_activity_logs";
   private static KEY_ATTACHMENTS = "revti_attachments";
   private static KEY_CREDENTIALS = "revti_credentials";
+  private static KEY_REMINDERS = "revti_reminders";
 
   constructor() {
     // Seed initial values if empty
@@ -266,6 +282,7 @@ export class MockService implements IWorkspaceService {
       StorageManager.get(MockService.KEY_ACTIVITY_LOGS, MOCK_ACTIVITY_LOGS);
       StorageManager.get(MockService.KEY_ATTACHMENTS, [] as Attachment[]);
       StorageManager.get(MockService.KEY_CREDENTIALS, MOCK_CREDENTIALS);
+      StorageManager.get(MockService.KEY_REMINDERS, MOCK_REMINDERS);
       
       const currentUserId = localStorage.getItem(MockService.KEY_CURRENT_USER_ID);
       if (!currentUserId) {
@@ -771,5 +788,28 @@ export class MockService implements IWorkspaceService {
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  async getTaskReminders(): Promise<TaskReminder[]> {
+    return StorageManager.get(MockService.KEY_REMINDERS, MOCK_REMINDERS);
+  }
+
+  async createTaskReminder(data: Omit<TaskReminder, "id" | "created_at" | "updated_at">): Promise<TaskReminder> {
+    const reminders = await this.getTaskReminders();
+    const now = new Date().toISOString();
+    const newReminder: TaskReminder = {
+      id: `reminder-${Date.now()}`,
+      ...data,
+      created_at: now,
+      updated_at: now,
+    };
+    reminders.push(newReminder);
+    StorageManager.set(MockService.KEY_REMINDERS, reminders);
+    return newReminder;
+  }
+
+  async deleteTaskReminder(id: string): Promise<void> {
+    const reminders = await this.getTaskReminders();
+    StorageManager.set(MockService.KEY_REMINDERS, reminders.filter((r) => r.id !== id));
   }
 }

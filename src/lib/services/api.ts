@@ -130,6 +130,18 @@ export interface Credential {
   recovery_file_path?: string | null;
 }
 
+export interface TaskReminder {
+  id: string;
+  website_name: string;
+  task_type: string;
+  description: string;
+  interval_type: "weekly" | "monthly" | "date";
+  interval_value: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface IWorkspaceService {
   // Authentication / User Persona management
   getCurrentUser(): Promise<User>;
@@ -183,6 +195,11 @@ export interface IWorkspaceService {
   updateCredential(id: string, data: Partial<Credential>): Promise<Credential>;
   deleteCredential(id: string): Promise<void>;
   uploadCredentialFile(file: File): Promise<{ fileName: string, filePath: string }>;
+
+  // Task Reminders
+  getTaskReminders(): Promise<TaskReminder[]>;
+  createTaskReminder(data: Omit<TaskReminder, "id" | "created_at" | "updated_at">): Promise<TaskReminder>;
+  deleteTaskReminder(id: string): Promise<void>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

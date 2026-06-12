@@ -338,3 +338,36 @@ CREATE POLICY "Enable write credentials for admins only"
     TO authenticated
     USING (public.is_admin())
     WITH CHECK (public.is_admin());
+
+-- -------------------------------------------------------------
+-- Task Reminders Table
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS task_reminders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    website_name TEXT NOT NULL,
+    task_type TEXT NOT NULL,
+    description TEXT,
+    interval_type TEXT NOT NULL CHECK (interval_type IN ('weekly', 'monthly', 'date')),
+    interval_value TEXT NOT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER update_task_reminders_updated_at
+    BEFORE UPDATE ON task_reminders
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE task_reminders ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable read reminders for all authenticated"
+    ON task_reminders FOR SELECT
+    TO authenticated
+    USING (true);
+
+CREATE POLICY "Enable write reminders for editors and admins"
+    ON task_reminders FOR ALL
+    TO authenticated
+    USING (public.is_editor_or_admin());
+

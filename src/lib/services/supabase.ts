@@ -14,6 +14,7 @@ import {
   DashboardStats,
   UserRole,
   Credential,
+  TaskReminder,
 } from "./api";
 
 export class SupabaseService implements IWorkspaceService {
@@ -620,5 +621,33 @@ export class SupabaseService implements IWorkspaceService {
       fileName: file.name,
       filePath: publicUrl,
     };
+  }
+
+  async getTaskReminders(): Promise<TaskReminder[]> {
+    const { data, error } = await this.client
+      .from("task_reminders")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createTaskReminder(data: Omit<TaskReminder, "id" | "created_at" | "updated_at">): Promise<TaskReminder> {
+    const currentUser = await this.getCurrentUser();
+    const { data: newReminder, error } = await this.client
+      .from("task_reminders")
+      .insert({ ...data, created_by: currentUser.id })
+      .select()
+      .single();
+    if (error) throw error;
+    return newReminder;
+  }
+
+  async deleteTaskReminder(id: string): Promise<void> {
+    const { error } = await this.client
+      .from("task_reminders")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   }
 }
