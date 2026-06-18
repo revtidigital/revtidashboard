@@ -144,6 +144,37 @@ export interface TaskReminder {
   is_completed?: boolean;
 }
 
+export interface ProjectStat {
+  num: string;
+  label: string;
+}
+
+export interface ProjectFeedback {
+  name: string;
+  role: string;
+  text: string;
+}
+
+export interface Project {
+  id: string;
+  cat: string;
+  year: string;
+  title: string;
+  client: string;
+  tagline: string;
+  headline: string;
+  desc: string;
+  shortDesc: string;
+  tags: string[];
+  thumb: string;
+  gallery: string[];
+  stats: ProjectStat[];
+  feedback: ProjectFeedback[];
+  created_at?: string;
+  status?: "draft" | "published";
+  sequence?: number;
+}
+
 export interface IWorkspaceService {
   // Authentication / User Persona management
   getCurrentUser(): Promise<User>;
@@ -203,6 +234,12 @@ export interface IWorkspaceService {
   createTaskReminder(data: Omit<TaskReminder, "id" | "created_at" | "updated_at">): Promise<TaskReminder>;
   updateTaskReminder(id: string, data: Partial<TaskReminder>): Promise<TaskReminder>;
   deleteTaskReminder(id: string): Promise<void>;
+
+  // Projects
+  getProjects(): Promise<Project[]>;
+  createProject(data: Omit<Project, "id" | "created_at">): Promise<Project>;
+  updateProject(id: string, data: Partial<Project>): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

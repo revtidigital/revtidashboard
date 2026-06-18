@@ -15,11 +15,108 @@ import {
   Credential,
   CredentialCategory,
   TaskReminder,
+  Project,
 } from "./api";
 
 // -------------------------------------------------------------
 // Seeding & Mock Initial Data
 // -------------------------------------------------------------
+export const MOCK_PROJECTS: Project[] = [
+  {
+    id: "1",
+    cat: "web",
+    year: "2025",
+    title: "MERIDIAN",
+    client: "Meridian Goods",
+    tagline: "One Team, One Vision\nEvery Channel Driving Growth",
+    headline: "MARKETING\nWITHOUT GAPS,\nGROWTH WITHOUT\nLIMITS",
+    desc: "A headless e-commerce platform built with Next.js, delivering lightning-fast page loads and a seamless checkout experience powered by Stripe and Sanity CMS.",
+    shortDesc: "A headless e-commerce platform.",
+    tags: ["Next.js", "Sanity CMS", "Stripe"],
+    thumb: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85",
+    gallery: [
+      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85",
+      "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=900&q=85",
+      "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900&q=85"
+    ],
+    stats: [
+      { num: "3.8×", label: "Conversion" },
+      { num: "$4M+", label: "GMV" },
+      { num: "0.8s", label: "LCP" },
+      { num: "99.9%", label: "Uptime" }
+    ],
+    feedback: [
+      { name: "Sarah Holden", role: "CEO · Meridian", text: "Revti Tech completely transformed our online business. Revenue nearly doubled within six months." },
+      { name: "James Park", role: "Customer", text: "The checkout flow is the smoothest I have ever used — fast, clear, zero friction." }
+    ],
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    status: "published",
+    sequence: 1
+  },
+  {
+    id: "2",
+    cat: "mobile",
+    year: "2025",
+    title: "PETAL",
+    client: "Petal Health",
+    tagline: "Your Wellness,\nPersonalised Daily",
+    headline: "WELLNESS\nWITHOUT\nBARRIERS",
+    desc: "A mental wellness app with AI-powered mood tracking, journaling, and personalised insights built on React Native and Firebase, used by 200K+ people.",
+    shortDesc: "A wellness app.",
+    tags: ["React Native", "Firebase", "AI"],
+    thumb: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1400&q=85",
+    gallery: [
+      "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1400&q=85",
+      "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=900&q=85",
+      "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=900&q=85"
+    ],
+    stats: [
+      { num: "200K", label: "Users" },
+      { num: "4.8★", label: "App Store" },
+      { num: "68%", label: "Retention" },
+      { num: "12min", label: "Session" }
+    ],
+    feedback: [
+      { name: "Dr. Leena", role: "Clinical Advisor", text: "Remarkably sensitive design that respects the emotional nature of the content." },
+      { name: "Alex T.", role: "Reviewer", text: "Finally an app that understands what wellness feels like. Stuck with it for a year." }
+    ],
+    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    status: "published",
+    sequence: 2
+  },
+  {
+    id: "3",
+    cat: "brand",
+    year: "2024",
+    title: "NOVA",
+    client: "Nova Financial",
+    tagline: "A Brand Built\nFor the Future",
+    headline: "IDENTITY\nTHAT OPENS\nDOORS",
+    desc: "A complete brand identity overhaul for a fintech firm — logo, type system, colour palette, and a 320-component design system shipped in just six weeks.",
+    shortDesc: "Complete brand overhaul.",
+    tags: ["Branding", "Design Systems", "Strategy"],
+    thumb: "https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85",
+    gallery: [
+      "https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85",
+      "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=900&q=85",
+      "https://images.unsplash.com/photo-1558655146-d09347e92766?w=900&q=85"
+    ],
+    stats: [
+      { num: "42%", label: "Recall ↑" },
+      { num: "320+", label: "Components" },
+      { num: "6wk", label: "Delivery" },
+      { num: "3", label: "Markets" }
+    ],
+    feedback: [
+      { name: "Marcus Webb", role: "CMO · Nova", text: "It finally reflects who we are. The new identity opened doors we had been knocking on for years." },
+      { name: "Priya S.", role: "Design Manager", text: "The design system alone made our team ship three times faster." }
+    ],
+    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    status: "published",
+    sequence: 3
+  }
+];
+
 const MOCK_USERS: User[] = [
   {
     id: "user-1",
@@ -269,6 +366,7 @@ export class MockService implements IWorkspaceService {
   private static KEY_ATTACHMENTS = "revti_attachments";
   private static KEY_CREDENTIALS = "revti_credentials";
   private static KEY_REMINDERS = "revti_reminders";
+  private static KEY_PROJECTS = "revti_projects";
 
   constructor() {
     // Seed initial values if empty
@@ -283,6 +381,7 @@ export class MockService implements IWorkspaceService {
       StorageManager.get(MockService.KEY_ATTACHMENTS, [] as Attachment[]);
       StorageManager.get(MockService.KEY_CREDENTIALS, MOCK_CREDENTIALS);
       StorageManager.get(MockService.KEY_REMINDERS, MOCK_REMINDERS);
+      StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
       
       const currentUserId = localStorage.getItem(MockService.KEY_CURRENT_USER_ID);
       if (!currentUserId) {
@@ -820,5 +919,68 @@ export class MockService implements IWorkspaceService {
   async deleteTaskReminder(id: string): Promise<void> {
     const reminders = await this.getTaskReminders();
     StorageManager.set(MockService.KEY_REMINDERS, reminders.filter((r) => r.id !== id));
+  }
+
+  async getProjects(): Promise<Project[]> {
+    const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+    return projects.sort((a, b) => {
+      const seqA = a.sequence ?? Infinity;
+      const seqB = b.sequence ?? Infinity;
+      if (seqA !== seqB) {
+        return seqA - seqB;
+      }
+      return (a.title || "").localeCompare(b.title || "");
+    });
+  }
+
+  async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
+    const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+    
+    // Shift conflicting sequences
+    const targetSequence = data.sequence;
+    if (targetSequence !== undefined && targetSequence !== null) {
+      projects.forEach((p) => {
+        if (p.sequence !== undefined && p.sequence !== null && p.sequence >= targetSequence) {
+          p.sequence = p.sequence + 1;
+        }
+      });
+    }
+
+    const newProject: Project = {
+      ...data,
+      id: String(projects.length > 0 ? Math.max(...projects.map((p) => parseInt(p.id) || 0)) + 1 : 1),
+      created_at: new Date().toISOString(),
+      status: data.status || "published",
+    };
+    projects.push(newProject);
+    StorageManager.set(MockService.KEY_PROJECTS, projects);
+    return newProject;
+  }
+
+  async updateProject(id: string, data: Partial<Project>): Promise<Project> {
+    const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+    const index = projects.findIndex((p) => String(p.id) === String(id));
+    if (index === -1) throw new Error("Project not found");
+
+    const oldProject = projects[index];
+    const oldSequence = oldProject.sequence;
+    const targetSequence = data.sequence;
+
+    if (targetSequence !== undefined && targetSequence !== null && targetSequence !== oldSequence) {
+      projects.forEach((p) => {
+        if (String(p.id) !== String(id) && p.sequence !== undefined && p.sequence !== null && p.sequence >= targetSequence) {
+          p.sequence = p.sequence + 1;
+        }
+      });
+    }
+
+    projects[index] = { ...projects[index], ...data };
+    StorageManager.set(MockService.KEY_PROJECTS, projects);
+    return projects[index];
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+    StorageManager.set(MockService.KEY_PROJECTS, projects.filter((p) => String(p.id) !== String(id)));
   }
 }

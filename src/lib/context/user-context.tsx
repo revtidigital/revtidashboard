@@ -26,8 +26,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const allUsers = await service.getUsers();
       setUser(currentUser);
       setUsers(allUsers);
-    } catch (error) {
-      console.error("Failed to load user persona:", error);
+    } catch (error: any) {
+      if (error?.message === "No authenticated user found") {
+        console.info("No active user session.");
+      } else {
+        console.error("Failed to load user persona:", error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -56,8 +60,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const service = getWorkspaceService();
       const currentUser = await service.getCurrentUser();
       setUser(currentUser);
-    } catch (error) {
-      console.error("Failed to refresh user:", error);
+    } catch (error: any) {
+      if (error?.message !== "No authenticated user found") {
+        console.error("Failed to refresh user:", error);
+      }
     }
   };
 

@@ -15,6 +15,9 @@ import {
   Eye,
   UserCheck,
   Calendar,
+  Compass,
+  Trash2,
+  Edit,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -23,6 +26,7 @@ import {
   DashboardStats,
   ActivityLog,
   DocumentWithRelations,
+  Project,
 } from "@/lib/services/api";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -36,12 +40,19 @@ export default function DashboardPage() {
   );
 }
 
+const CAT_LABELS: Record<string, string> = {
+  web: "Web Dev",
+  mobile: "Mobile App",
+  brand: "Branding",
+};
+
 function DashboardContent() {
   const router = useRouter();
   const { user } = useUser();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [assignedDocs, setAssignedDocs] = useState<DocumentWithRelations[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +65,11 @@ function DashboardContent() {
         const dashboardStats = await service.getDashboardStats();
         const logs = await service.getActivityLogs();
         const docs = await service.getDocuments();
+        const projectsData = await service.getProjects();
 
         setStats(dashboardStats);
         setActivities(logs.slice(0, 5)); // Show top 5 recent activities
+        setProjects(projectsData);
 
         // Find documents assigned to current user
         const userAssigned: DocumentWithRelations[] = [];
@@ -78,6 +91,23 @@ function DashboardContent() {
     loadDashboardData();
   }, [user]);
 
+  const handleDeleteProject = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to permanently delete the project "${title}"?`)) return;
+    try {
+      const service = getWorkspaceService();
+      await service.deleteProject(id);
+      
+      // Update local state
+      setProjects((prev) => prev.filter((p) => String(p.id) !== String(id)));
+      
+      // Log activity
+      await service.logActivity("deleted", null, `deleted the portfolio project: ${title}`);
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      alert("Failed to delete project. Please try again.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
@@ -96,7 +126,8 @@ function DashboardContent() {
 
         {/* Content Columns Skeleton */}
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="h-80 md:col-span-2 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-80 rounded bg-[#0F1629] animate-pulse" />
+          <div className="h-80 rounded bg-[#0F1629] animate-pulse" />
           <div className="h-80 rounded bg-[#0F1629] animate-pulse" />
         </div>
       </div>
@@ -173,9 +204,9 @@ function DashboardContent() {
       </div>
 
       {/* Main dashboard columns */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Recent Activity Feed */}
-        <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white md:col-span-2">
+        <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
           <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
             <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
               <Clock className="h-5 w-5 text-[#38BDF8]" />
@@ -231,7 +262,7 @@ function DashboardContent() {
           </div>
         </Card>
 
-        {/* Right Column: Quick Actions & Personal Assignments */}
+        {/* Center Column: Quick Actions & Personal Assignments */}
         <div className="flex flex-col gap-6">
           {/* Quick Actions Card */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
@@ -302,6 +333,94 @@ function DashboardContent() {
             </div>
           </Card>
         </div>
+
+        {/* Right Column: Portfolio Projects */}
+        <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white flex flex-col justify-between">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight border-b border-[#1E2D47] pb-4 flex items-center gap-2">
+              <Compass className="h-5 w-5 text-[#818CF8]" />
+              Portfolio Projects
+            </h2>
+            <div className="mt-4 space-y-4">
+              {projects.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#94A3B8]">
+                  No projects available.
+                </div>
+              ) : (
+                projects.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => router.push(`/portfolio?id=${p.id}`)}
+                    className="group block p-3 rounded-xl bg-[#141B2D]/50 border border-[#1E2D47] hover:border-[#818CF8]/50 hover:bg-[#141B2D] transition-all duration-300 cursor-pointer relative"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-[#8892A4] uppercase tracking-wider">
+                        {p.client} • {p.year} • Seq: {p.sequence !== undefined ? p.sequence : "-"}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded border ${
+                          p.status === "draft"
+                            ? "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                            : "text-[#0EA5E9] bg-[#0EA5E9]/10 border-[#0EA5E9]/20"
+                        }`}>
+                          {p.status === "draft" ? "Draft" : "Pub"}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-[#818CF8] border border-indigo-500/20 font-mono">
+                          {CAT_LABELS[p.cat] || p.cat}
+                        </span>
+                      </div>
+                    </div>
+                    <h3 className="text-sm font-extrabold tracking-tight text-white mt-1 group-hover:text-[#818CF8] transition-colors">
+                      {p.title}
+                    </h3>
+                    <p className="text-xs text-[#94A3B8] mt-1 line-clamp-2 leading-relaxed">
+                      {p.shortDesc}
+                    </p>
+                    <div className="flex items-center justify-between mt-2.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#818CF8] font-semibold">
+                        <span>Preview Live Shell</span>
+                        <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                      </div>
+                      {user?.role !== "view" && (
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => router.push(`/portfolio/edit/${p.id}`)}
+                            className="p-1 rounded hover:bg-[#1E2D47] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            title="Edit Project"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProject(p.id, p.title)}
+                            className="p-1 rounded hover:bg-[#1E2D47] text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+                            title="Delete Project"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-[#1E2D47]">
+            <Link href="/portfolio" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full justify-between border-[#1E2D47] bg-[#0F1629]/40 text-slate-200 hover:bg-[#1E2D47] hover:text-white transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Compass className="h-4 w-4" />
+                  Open Portfolio Dashboard
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </Card>
       </div>
     </div>
   );

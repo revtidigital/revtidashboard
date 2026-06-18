@@ -15,7 +15,9 @@ import {
   UserRole,
   Credential,
   TaskReminder,
+  Project,
 } from "./api";
+import { MOCK_PROJECTS, MockService } from "./mock";
 
 export class SupabaseService implements IWorkspaceService {
   private client = supabase!;
@@ -660,5 +662,151 @@ export class SupabaseService implements IWorkspaceService {
       .delete()
       .eq("id", id);
     if (error) throw error;
+  }
+
+  async getProjects(): Promise<Project[]> {
+    try {
+      const { data, error } = await this.client
+        .from("projects")
+        .select("*")
+        .order("sequence", { ascending: true, nullsFirst: false })
+        .order("title", { ascending: true });
+      if (error) {
+        console.warn("Supabase 'projects' table query failed, falling back to mock projects:", error.message);
+        return MOCK_PROJECTS;
+      }
+      return data && data.length > 0 ? (data as Project[]) : MOCK_PROJECTS;
+    } catch (e) {
+      console.warn("Error querying projects from Supabase, falling back to mock projects:", e);
+      return MOCK_PROJECTS;
+    }
+  }
+
+  async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
+    try {
+      const targetSequence = data.sequence;
+      if (targetSequence !== undefined && targetSequence !== null) {
+        // Shift existing projects
+        const { data: projectsToShift } = await this.client
+          .from("projects")
+          .select("id, sequence")
+          .gte("sequence", targetSequence);
+        
+        if (projectsToShift && projectsToShift.length > 0) {
+          const updates = projectsToShift.map(p => ({
+            id: p.id,
+            sequence: (p.sequence || 0) + 1
+          }));
+          await this.client.from("projects").upsert(updates);
+        }
+      }
+
+      const { data: newProject, error } = await this.client
+        .from("projects")
+        .insert(data)
+        .select()
+        .single();
+      if (error) {
+        console.warn("Supabase 'projects' table insert failed, falling back to mock create:", error.message);
+        const mockService = new MockService();
+        return await mockService.createProject(data);
+      }
+      this.triggerRevalidation();
+      return newProject as Project;
+    } catch (e) {
+      console.warn("Error inserting project in Supabase, falling back to mock create:", e);
+      const mockService = new MockService();
+      return await mockService.createProject(data);
+    }
+  }
+
+  async triggerRevalidation() {
+    const revalidateUrl = process.env.LANDING_PAGE_REVALIDATE_URL;
+    const revalidateSecret = process.env.REVALIDATE_SECRET;
+    
+    if (revalidateUrl && revalidateSecret) {
+      try {
+        const url = new URL(revalidateUrl);
+        url.searchParams.set("secret", revalidateSecret);
+        url.searchParams.set("tag", "projects");
+        
+        fetch(url.toString(), { method: "GET" }).catch(err => {
+          console.error("Failed to trigger landing page revalidation webhook:", err);
+        });
+      } catch (err) {
+        console.error("Invalid revalidation URL configured:", err);
+      }
+    }
+  }
+
+  async updateProject(id: string, data: Partial<Project>): Promise<Project> {
+    try {
+      const targetSequence = data.sequence;
+      if (targetSequence !== undefined && targetSequence !== null) {
+        // Fetch existing project's sequence to check if it has changed
+        const { data: existingProject } = await this.client
+          .from("projects")
+          .select("sequence")
+          .eq("id", id)
+          .single();
+        
+        const oldSequence = existingProject?.sequence;
+
+        if (targetSequence !== oldSequence) {
+          // Shift conflicting sequences
+          const { data: projectsToShift } = await this.client
+            .from("projects")
+            .select("id, sequence")
+            .gte("sequence", targetSequence)
+            .neq("id", id);
+          
+          if (projectsToShift && projectsToShift.length > 0) {
+            const updates = projectsToShift.map(p => ({
+              id: p.id,
+              sequence: (p.sequence || 0) + 1
+            }));
+            await this.client.from("projects").upsert(updates);
+          }
+        }
+      }
+
+      const { data: updated, error } = await this.client
+        .from("projects")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        console.warn("Supabase 'projects' table update failed, falling back to mock update:", error.message);
+        const mockService = new MockService();
+        return await mockService.updateProject(id, data);
+      }
+      this.triggerRevalidation();
+      return updated as Project;
+    } catch (e) {
+      console.warn("Error updating project in Supabase, falling back to mock update:", e);
+      const mockService = new MockService();
+      return await mockService.updateProject(id, data);
+    }
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from("projects")
+        .delete()
+        .eq("id", id);
+      if (error) {
+        console.warn("Supabase 'projects' table delete failed, falling back to mock delete:", error.message);
+        const mockService = new MockService();
+        await mockService.deleteProject(id);
+      } else {
+        this.triggerRevalidation();
+      }
+    } catch (e) {
+      console.warn("Error deleting project in Supabase, falling back to mock delete:", e);
+      const mockService = new MockService();
+      await mockService.deleteProject(id);
+    }
   }
 }

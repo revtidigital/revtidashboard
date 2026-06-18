@@ -18,6 +18,7 @@ export function Sidebar({ className }: SidebarProps) {
     { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
     { name: "Credentials Vault", href: "/credentials", icon: KeyRound },
     { name: "Task Reminders", href: "/reminders", icon: Bell },
+    { name: "Portfolio", href: "/portfolio", icon: Compass },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

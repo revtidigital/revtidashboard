@@ -372,3 +372,45 @@ CREATE POLICY "Enable write reminders for editors and admins"
     TO authenticated
     USING (public.is_editor_or_admin());
 
+
+-- -------------------------------------------------------------
+-- 9. Portfolio Projects Table
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cat TEXT NOT NULL,
+    year TEXT NOT NULL,
+    title TEXT NOT NULL,
+    client TEXT NOT NULL,
+    tagline TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    "desc" TEXT NOT NULL,
+    "shortDesc" TEXT NOT NULL,
+    tags TEXT[] NOT NULL DEFAULT '{}',
+    thumb TEXT NOT NULL,
+    gallery TEXT[] NOT NULL DEFAULT '{}',
+    stats JSONB NOT NULL DEFAULT '[]',
+    feedback JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable read projects for all authenticated"
+    ON projects FOR SELECT
+    TO authenticated
+    USING (true);
+
+CREATE POLICY "Enable write projects for admin users only"
+    ON projects FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+-- Seed Projects (Optional)
+-- INSERT INTO projects (cat, year, title, client, tagline, headline, "desc", "shortDesc", tags, thumb, gallery, stats, feedback) VALUES
+-- ('web', '2025', 'MERIDIAN', 'Meridian Goods', 'One Team, One Vision\nEvery Channel Driving Growth', 'MARKETING\nWITHOUT GAPS,\nGROWTH WITHOUT\nLIMITS', 'A headless e-commerce platform built with Next.js, delivering lightning-fast page loads and a seamless checkout experience powered by Stripe and Sanity CMS.', 'A headless e-commerce platform.', ARRAY['Next.js','Sanity CMS','Stripe'], 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85', ARRAY['https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85','https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=900&q=85','https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900&q=85'], '[{"num":"3.8\u00d7","label":"Conversion"},{"num":"$4M+","label":"GMV"},{"num":"0.8s","label":"LCP"},{"num":"99.9%","label":"Uptime"}]'::jsonb, '[{"name":"Sarah Holden","role":"CEO \u00b7 Meridian","text":"Revti Tech completely transformed our online business. Revenue nearly doubled within six months."},{"name":"James Park","role":"Customer","text":"The checkout flow is the smoothest I have ever used \u2014 fast, clear, zero friction."}]'::jsonb),
+-- ('mobile', '2025', 'PETAL', 'Petal Health', 'Your Wellness,\nPersonalised Daily', 'WELLNESS\nWITHOUT\nBARRIERS', 'A mental wellness app with AI-powered mood tracking, journaling, and personalised insights built on React Native and Firebase, used by 200K+ people.', 'A wellness app.', ARRAY['React Native','Firebase','AI'], 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1400&q=85', ARRAY['https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1400&q=85','https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=900&q=85','https://images.unsplash.com/photo-1551650975-87deedd944c3?w=900&q=85'], '[{"num":"200K","label":"Users"},{"num":"4.8\u2605","label":"App Store"},{"num":"68%","label":"Retention"},{"num":"12min","label":"Session"}]'::jsonb, '[{"name":"Dr. Leena","role":"Clinical Advisor","text":"Remarkably sensitive design that respects the emotional nature of the content."},{"name":"Alex T.","role":"Reviewer","text":"Finally an app that understands what wellness feels like. Stuck with it for a year."}]'::jsonb),
+-- ('brand', '2024', 'NOVA', 'Nova Financial', 'A Brand Built\nFor the Future', 'IDENTITY\nTHAT OPENS\nDOORS', 'A complete brand identity overhaul for a fintech firm \u2014 logo, type system, colour palette, and a 320-component design system shipped in just six weeks.', 'Complete brand overhaul.', ARRAY['Branding','Design Systems','Strategy'], 'https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85', ARRAY['https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85','https://images.unsplash.com/photo-1561070791-2526d30994b5?w=900&q=85','https://images.unsplash.com/photo-1558655146-d09347e92766?w=900&q=85'], '[{"num":"42%","label":"Recall \u2191"},{"num":"320+","label":"Components"},{"num":"6wk","label":"Delivery"},{"num":"3","label":"Markets"}]'::jsonb, '[{"name":"Marcus Webb","role":"CMO \u00b7 Nova","text":"It finally reflects who we are. The new identity opened doors we had been knocking on for years."},{"name":"Priya S.","role":"Design Manager","text":"The design system alone made our team ship three times faster."}]'::jsonb);
+
+
