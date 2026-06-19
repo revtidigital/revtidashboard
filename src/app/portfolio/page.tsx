@@ -88,6 +88,8 @@ function PortfolioContent() {
     return found ? found.name : slug;
   };
 
+  
+
   const getCategoryStyles = (slug: string) => {
     switch (slug) {
       case "web":
@@ -387,9 +389,18 @@ function PortfolioContent() {
                   <X className="h-4 w-4" />
                 </button>
                 <div className="absolute bottom-4 left-6 right-6">
-                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium mb-1.5 ${CAT_COLORS[viewProject.cat] || "text-slate-400 bg-slate-500/10 border-slate-500/20"}`}>
+                  {/* <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium mb-1.5 ${CAT_COLORS[viewProject.cat] || "text-slate-400 bg-slate-500/10 border-slate-500/20"}`}>
                     {CAT_LABELS[viewProject.cat] || viewProject.cat}
-                  </span>
+                  </span> */}
+
+
+<span
+  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium mb-1.5 ${getCategoryStyles(viewProject.cat)}`}
+>
+  {getCategoryName(viewProject.cat)}
+</span>
+
+
                   <h2 className="text-2xl font-extrabold tracking-wide text-white">
                     {viewProject.title}
                   </h2>
