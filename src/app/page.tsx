@@ -347,7 +347,7 @@ function DashboardContent() {
                   No projects available.
                 </div>
               ) : (
-                projects.map((p) => (
+                projects.slice(0, 3).map((p) => (
                   <div
                     key={p.id}
                     onClick={() => router.push(`/portfolio?id=${p.id}`)}
