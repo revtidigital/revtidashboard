@@ -702,8 +702,9 @@ function EditProjectContent({ id }: { id: string }) {
                 <Select
                   value={videoType}
                   onValueChange={(val) => {
-                    setVideoType(val);
-                    if (val === "none") setVideoUrl("");
+                    const safeVal = val ?? "none";
+                    setVideoType(safeVal);
+                    if (safeVal === "none") setVideoUrl("");
                   }}
                 >
                   <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white w-full">
