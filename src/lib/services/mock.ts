@@ -16,7 +16,14 @@ import {
   CredentialCategory,
   TaskReminder,
   Project,
+  ProjectCategory,
 } from "./api";
+
+export const MOCK_PROJECT_CATEGORIES: ProjectCategory[] = [
+  { id: "c1", name: "Web Dev", slug: "web" },
+  { id: "c2", name: "Mobile App", slug: "mobile" },
+  { id: "c3", name: "Branding", slug: "brand" }
+];
 
 // -------------------------------------------------------------
 // Seeding & Mock Initial Data
@@ -367,6 +374,7 @@ export class MockService implements IWorkspaceService {
   private static KEY_CREDENTIALS = "revti_credentials";
   private static KEY_REMINDERS = "revti_reminders";
   private static KEY_PROJECTS = "revti_projects";
+  private static KEY_PROJECT_CATEGORIES = "revti_project_categories";
 
   constructor() {
     // Seed initial values if empty
@@ -382,6 +390,7 @@ export class MockService implements IWorkspaceService {
       StorageManager.get(MockService.KEY_CREDENTIALS, MOCK_CREDENTIALS);
       StorageManager.get(MockService.KEY_REMINDERS, MOCK_REMINDERS);
       StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+      StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
       
       const currentUserId = localStorage.getItem(MockService.KEY_CURRENT_USER_ID);
       if (!currentUserId) {
@@ -982,5 +991,44 @@ export class MockService implements IWorkspaceService {
   async deleteProject(id: string): Promise<void> {
     const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
     StorageManager.set(MockService.KEY_PROJECTS, projects.filter((p) => String(p.id) !== String(id)));
+  }
+
+  async getProjectCategories(): Promise<ProjectCategory[]> {
+    return StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
+  }
+
+  async createProjectCategory(name: string): Promise<ProjectCategory> {
+    const categories = StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    
+    if (categories.some(c => c.slug === slug)) {
+      throw new Error("Category slug already exists");
+    }
+
+    const newCat: ProjectCategory = {
+      id: `c-${Math.random().toString(36).substring(2)}`,
+      name,
+      slug,
+      created_at: new Date().toISOString()
+    };
+
+    categories.push(newCat);
+    StorageManager.set(MockService.KEY_PROJECT_CATEGORIES, categories);
+    return newCat;
+  }
+
+  async deleteProjectCategory(id: string): Promise<void> {
+    const categories = StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
+    StorageManager.set(
+      MockService.KEY_PROJECT_CATEGORIES,
+      categories.filter((c) => String(c.id) !== String(id))
+    );
+  }
+
+  async uploadProjectFile(file: File): Promise<string> {
+    if (typeof window !== "undefined") {
+      return URL.createObjectURL(file);
+    }
+    return `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85`;
   }
 }

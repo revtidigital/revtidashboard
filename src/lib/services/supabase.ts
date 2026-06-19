@@ -16,6 +16,7 @@ import {
   Credential,
   TaskReminder,
   Project,
+  ProjectCategory,
 } from "./api";
 import { MOCK_PROJECTS, MockService } from "./mock";
 
@@ -808,5 +809,85 @@ export class SupabaseService implements IWorkspaceService {
       const mockService = new MockService();
       await mockService.deleteProject(id);
     }
+  }
+
+  async getProjectCategories(): Promise<ProjectCategory[]> {
+    try {
+      const { data, error } = await this.client
+        .from("project_categories")
+        .select("*")
+        .order("name", { ascending: true });
+      
+      if (error) {
+        console.warn("Supabase 'project_categories' table query failed, falling back to mock:", error.message);
+        const mockService = new MockService();
+        return await mockService.getProjectCategories();
+      }
+      return data || [];
+    } catch (e) {
+      console.warn("Error querying project categories, falling back to mock:", e);
+      const mockService = new MockService();
+      return await mockService.getProjectCategories();
+    }
+  }
+
+  async createProjectCategory(name: string): Promise<ProjectCategory> {
+    try {
+      const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const { data, error } = await this.client
+        .from("project_categories")
+        .insert({ name, slug })
+        .select()
+        .single();
+      
+      if (error) {
+        console.warn("Supabase 'project_categories' insert failed, falling back to mock:", error.message);
+        const mockService = new MockService();
+        return await mockService.createProjectCategory(name);
+      }
+      this.triggerRevalidation();
+      return data;
+    } catch (e) {
+      console.warn("Error creating project category in Supabase, falling back to mock:", e);
+      const mockService = new MockService();
+      return await mockService.createProjectCategory(name);
+    }
+  }
+
+  async deleteProjectCategory(id: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from("project_categories")
+        .delete()
+        .eq("id", id);
+      
+      if (error) {
+        console.warn("Supabase 'project_categories' delete failed, falling back to mock:", error.message);
+        const mockService = new MockService();
+        await mockService.deleteProjectCategory(id);
+      } else {
+        this.triggerRevalidation();
+      }
+    } catch (e) {
+      console.warn("Error deleting project category in Supabase, falling back to mock:", e);
+      const mockService = new MockService();
+      await mockService.deleteProjectCategory(id);
+    }
+  }
+
+  async uploadProjectFile(file: File): Promise<string> {
+    const fileExt = file.name.split(".").pop();
+    const filePath = `projects/${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await this.client.storage
+      .from("attachments")
+      .upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = this.client.storage
+      .from("attachments")
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   }
 }

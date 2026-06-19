@@ -12,6 +12,8 @@ import {
   TrendingUp,
   User,
   Quote,
+  Upload,
+  Video,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -20,6 +22,7 @@ import {
   Project,
   ProjectStat,
   ProjectFeedback,
+  ProjectCategory,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,11 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CAT_LABELS: Record<string, string> = {
-  web: "Web Dev",
-  mobile: "Mobile App",
-  brand: "Branding",
-};
+// CAT_LABELS removed in favor of dynamic categories
 
 interface EditProjectPageProps {
   params: Promise<{ id: string }>;
@@ -88,11 +87,21 @@ function EditProjectContent({ id }: { id: string }) {
   const [shortDesc, setShortDesc] = useState("");
   const [thumb, setThumb] = useState("");
   const [tagsInput, setTagsInput] = useState("");
-  const [galleryInput, setGalleryInput] = useState("");
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [stats, setStats] = useState<ProjectStat[]>([]);
   const [feedbacks, setFeedbacks] = useState<ProjectFeedback[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("published");
   const [sequence, setSequence] = useState("");
+
+  const [categories, setCategories] = useState<ProjectCategory[]>([]);
+  const [newCatName, setNewCatName] = useState("");
+  const [isAddingCat, setIsAddingCat] = useState(false);
+  const [isUploadingThumb, setIsUploadingThumb] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+
+  const [videoType, setVideoType] = useState("none");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -111,7 +120,11 @@ function EditProjectContent({ id }: { id: string }) {
       setErrorMsg(null);
       try {
         const service = getWorkspaceService();
-        const allProjects = await service.getProjects();
+        const [allProjects, categoriesData] = await Promise.all([
+          service.getProjects(),
+          service.getProjectCategories()
+        ]);
+        setCategories(categoriesData);
 
         if (isNew) {
           // Default sequence to next available sequence
@@ -120,6 +133,9 @@ function EditProjectContent({ id }: { id: string }) {
             : 0;
           setSequence(String(maxSeq + 1));
           setYear(new Date().getFullYear().toString());
+          if (categoriesData.length > 0) {
+            setCat(categoriesData[0].slug);
+          }
         } else {
           const found = allProjects.find((p) => String(p.id) === String(id));
           if (!found) {
@@ -138,11 +154,13 @@ function EditProjectContent({ id }: { id: string }) {
           setShortDesc(found.shortDesc || "");
           setThumb(found.thumb || "");
           setTagsInput(found.tags ? found.tags.join(", ") : "");
-          setGalleryInput(found.gallery ? found.gallery.join("\n") : "");
+          setGalleryUrls(found.gallery ? found.gallery.filter(Boolean) : []);
           setStats(found.stats || []);
           setFeedbacks(found.feedback || []);
           setStatus(found.status || "published");
           setSequence(found.sequence !== undefined ? String(found.sequence) : "");
+          setVideoType(found.video_type || "none");
+          setVideoUrl(found.video_url || "");
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -156,6 +174,77 @@ function EditProjectContent({ id }: { id: string }) {
   }, [id, isNew, user, isAuthorized, router]);
 
   // Form Field Handlers
+  // Form Field Handlers
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    setIsAddingCat(true);
+    try {
+      const service = getWorkspaceService();
+      const newCat = await service.createProjectCategory(newCatName.trim());
+      setCategories([...categories, newCat]);
+      setCat(newCat.slug);
+      setNewCatName("");
+    } catch (err) {
+      console.error("Failed to add category:", err);
+      alert("Failed to add category. Make sure it doesn't already exist.");
+    } finally {
+      setIsAddingCat(false);
+    }
+  };
+
+  const handleThumbUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingThumb(true);
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      setThumb(publicUrl);
+    } catch (err) {
+      console.error("Failed to upload thumbnail:", err);
+      alert("Upload failed. Please try again.");
+    } finally {
+      setIsUploadingThumb(false);
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingGallery(true);
+    try {
+      const service = getWorkspaceService();
+      const uploadPromises = Array.from(files).map(file => service.uploadProjectFile(file));
+      const urls = await Promise.all(uploadPromises);
+      setGalleryUrls(prev => [...prev, ...urls]);
+    } catch (err) {
+      console.error("Failed to upload gallery images:", err);
+      alert("Failed to upload gallery images.");
+    } finally {
+      setIsUploadingGallery(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    setGalleryUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingVideo(true);
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      setVideoUrl(publicUrl);
+    } catch (err) {
+      console.error("Failed to upload video:", err);
+      alert("Video upload failed.");
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
   const handleAddStat = () => {
     setStats([...stats, { num: "", label: "" }]);
   };
@@ -210,10 +299,7 @@ function EditProjectContent({ id }: { id: string }) {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const parsedGallery = galleryInput
-      .split("\n")
-      .map((url) => url.trim())
-      .filter(Boolean);
+    const parsedGallery = galleryUrls.filter(Boolean);
 
     const sanitizedStats = stats.filter((s) => s.num.trim() || s.label.trim());
     const sanitizedFeedbacks = feedbacks.filter((f) => f.name.trim() || f.text.trim());
@@ -247,6 +333,8 @@ function EditProjectContent({ id }: { id: string }) {
       feedback: sanitizedFeedbacks,
       status: status,
       sequence: parsedSequence,
+      video_type: videoType,
+      video_url: videoUrl,
     };
 
     try {
@@ -324,26 +412,46 @@ function EditProjectContent({ id }: { id: string }) {
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 md:col-span-2">
                 <Label className="text-xs font-semibold text-slate-300">
                   Category <span className="text-red-500">*</span>
                 </Label>
-                <Select value={cat} onValueChange={(val) => setCat(val || "web")}>
-                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
-                    {Object.entries(CAT_LABELS).map(([val, label]) => (
-                      <SelectItem
-                        key={val}
-                        value={val}
-                        className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]"
-                      >
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Select value={cat} onValueChange={(val) => setCat(val || "web")}>
+                      <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                        {categories.map((c) => (
+                          <SelectItem
+                            key={c.slug}
+                            value={c.slug}
+                            className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]"
+                          >
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Input
+                      placeholder="New category..."
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="border-[#1E2D47] bg-[#07090F] text-white max-w-[150px] text-xs h-9"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddCategory}
+                      disabled={isAddingCat || !newCatName.trim()}
+                      className="bg-[#10B981] hover:bg-[#059669] text-white text-xs h-9 cursor-pointer"
+                    >
+                      {isAddingCat ? "Adding..." : "Add"}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -374,15 +482,82 @@ function EditProjectContent({ id }: { id: string }) {
 
               <div className="space-y-1.5 md:col-span-2">
                 <Label className="text-xs font-semibold text-slate-300">
-                  Thumbnail Image URL <span className="text-red-500">*</span>
+                  Thumbnail Image <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  placeholder="https://images.unsplash.com/... or /images/..."
-                  value={thumb}
-                  onChange={(e) => setThumb(e.target.value)}
-                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono"
-                  required
-                />
+                {thumb ? (
+                  <div className="relative group w-full h-40 rounded-md overflow-hidden border border-[#1E2D47]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={thumb}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setThumb("")}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </button>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id="thumb-upload"
+                          className="hidden"
+                          onChange={handleThumbUpload}
+                          disabled={isUploadingThumb}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('thumb-upload')?.click()}
+                          disabled={isUploadingThumb}
+                          className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-white text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          {isUploadingThumb ? (
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                          Replace
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Paste image URL or upload file below"
+                      value={thumb}
+                      onChange={(e) => setThumb(e.target.value)}
+                      className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono flex-1"
+                    />
+                    <div className="relative shrink-0">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="thumb-upload"
+                        className="hidden"
+                        onChange={handleThumbUpload}
+                        disabled={isUploadingThumb}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => document.getElementById('thumb-upload')?.click()}
+                        disabled={isUploadingThumb}
+                        className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {isUploadingThumb ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Upload File
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -445,11 +620,38 @@ function EditProjectContent({ id }: { id: string }) {
 
           {/* Section 3: Metadata & Assets */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
-              Tags & Gallery
-            </h2>
+            <div className="flex items-center justify-between border-b border-[#1E2D47] pb-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] ">
+                Tags & Gallery
+              </h2>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  id="gallery-upload"
+                  className="hidden"
+                  onChange={handleGalleryUpload}
+                  disabled={isUploadingGallery}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => document.getElementById('gallery-upload')?.click()}
+                  disabled={isUploadingGallery}
+                  className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-[10px] h-7 flex items-center gap-1 cursor-pointer"
+                >
+                  {isUploadingGallery ? (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    <Upload className="h-3 w-3" />
+                  )}
+                  Upload Gallery Images
+                </Button>
+              </div>
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-300">Tags (Comma-separated)</Label>
                 <Input
@@ -460,15 +662,157 @@ function EditProjectContent({ id }: { id: string }) {
                 />
               </div>
 
+              {/* Gallery Image Previews */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-slate-300">Gallery Images</Label>
+                {galleryUrls.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {galleryUrls.map((url, i) => (
+                      <div key={i} className="relative group aspect-video rounded-md overflow-hidden border border-[#1E2D47]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGalleryImage(i)}
+                          className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md"
+                          title="Remove image"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No gallery images yet. Upload some above.</p>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Section 4: Video Showcase */}
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3 flex items-center gap-2">
+              <Video className="h-4 w-4 text-[#818CF8]" />
+              Video Showcase
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Gallery Image URLs (one per line)</Label>
-                <Textarea
-                  placeholder="https://images.unsplash.com/photo-1...&#10;https://images.unsplash.com/photo-2..."
-                  value={galleryInput}
-                  onChange={(e) => setGalleryInput(e.target.value)}
-                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono min-h-[100px]"
-                  rows={4}
-                />
+                <Label className="text-xs font-semibold text-slate-300">Video Provider</Label>
+                <Select
+                  value={videoType}
+                  onValueChange={(val) => {
+                    setVideoType(val);
+                    if (val === "none") setVideoUrl("");
+                  }}
+                >
+                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white w-full">
+                    <SelectValue placeholder="No Video" />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">No Video</SelectItem>
+                    <SelectItem value="youtube" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">YouTube</SelectItem>
+                    <SelectItem value="vimeo" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Vimeo</SelectItem>
+                    <SelectItem value="upload" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Upload Video File</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                {videoType !== "none" && (
+                  <>
+                    <Label className="text-xs font-semibold text-slate-300">
+                      {videoType === "upload" ? "Video File" : "Video URL"}
+                    </Label>
+
+                    {/* Video preview when URL is set */}
+                    {videoUrl ? (
+                      <div className="space-y-2">
+                        <div className="relative w-full rounded-md overflow-hidden border border-[#1E2D47] bg-black" style={{ paddingBottom: '56.25%' }}>
+                          {videoType === "youtube" && (() => {
+                            const ytMatch = videoUrl.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
+                            const ytId = ytMatch?.[1];
+                            return ytId ? (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${ytId}`}
+                                className="absolute inset-0 w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            ) : <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">Invalid YouTube URL</div>;
+                          })()}
+                          {videoType === "vimeo" && (() => {
+                            const vmMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
+                            const vmId = vmMatch?.[1];
+                            return vmId ? (
+                              <iframe
+                                src={`https://player.vimeo.com/video/${vmId}`}
+                                className="absolute inset-0 w-full h-full"
+                                allow="autoplay; fullscreen; picture-in-picture"
+                                allowFullScreen
+                              />
+                            ) : <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">Invalid Vimeo URL</div>;
+                          })()}
+                          {videoType === "upload" && (
+                            <video
+                              src={videoUrl}
+                              controls
+                              className="absolute inset-0 w-full h-full object-contain"
+                            />
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setVideoUrl("")}
+                          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Remove video
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder={
+                            videoType === "youtube"
+                              ? "https://www.youtube.com/watch?v=..."
+                              : videoType === "vimeo"
+                                ? "https://vimeo.com/..."
+                                : "Click Upload Video to select a file"
+                          }
+                          value={videoUrl}
+                          onChange={(e) => setVideoUrl(e.target.value)}
+                          className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono flex-1"
+                          readOnly={videoType === "upload"}
+                        />
+                        {videoType === "upload" && (
+                          <div className="relative shrink-0">
+                            <input
+                              type="file"
+                              accept="video/*"
+                              id="video-upload"
+                              className="hidden"
+                              onChange={handleVideoUpload}
+                              disabled={isUploadingVideo}
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => document.getElementById('video-upload')?.click()}
+                              disabled={isUploadingVideo}
+                              className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer"
+                            >
+                              {isUploadingVideo ? (
+                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5" />
+                              )}
+                              Upload Video
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </Card>

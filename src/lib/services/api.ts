@@ -155,6 +155,13 @@ export interface ProjectFeedback {
   text: string;
 }
 
+export interface ProjectCategory {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+}
+
 export interface Project {
   id: string;
   cat: string;
@@ -173,6 +180,8 @@ export interface Project {
   created_at?: string;
   status?: "draft" | "published";
   sequence?: number;
+  video_type?: string;
+  video_url?: string;
 }
 
 export interface IWorkspaceService {
@@ -240,6 +249,10 @@ export interface IWorkspaceService {
   createProject(data: Omit<Project, "id" | "created_at">): Promise<Project>;
   updateProject(id: string, data: Partial<Project>): Promise<Project>;
   deleteProject(id: string): Promise<void>;
+  getProjectCategories(): Promise<ProjectCategory[]>;
+  createProjectCategory(name: string): Promise<ProjectCategory>;
+  deleteProjectCategory(id: string): Promise<void>;
+  uploadProjectFile(file: File): Promise<string>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

@@ -19,6 +19,7 @@ import { useUser } from "@/lib/context/user-context";
 import {
   getWorkspaceService,
   Project,
+  ProjectCategory,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -45,17 +46,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const CAT_LABELS: Record<string, string> = {
-  web: "Web Dev",
-  mobile: "Mobile App",
-  brand: "Branding",
-};
-
-const CAT_COLORS: Record<string, string> = {
-  web: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
-  mobile: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-  brand: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-};
+// Categories are now loaded dynamically from the database
 
 export default function PortfolioPage() {
   return (
@@ -89,7 +80,26 @@ function PortfolioContent() {
 
   // Data State
   const [projects, setProjects] = useState<Project[]>([]);
+  const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getCategoryName = (slug: string) => {
+    const found = categories.find((c) => c.slug === slug);
+    return found ? found.name : slug;
+  };
+
+  const getCategoryStyles = (slug: string) => {
+    switch (slug) {
+      case "web":
+        return "text-indigo-400 bg-indigo-500/10 border-indigo-500/20";
+      case "mobile":
+        return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+      case "brand":
+        return "text-rose-400 bg-rose-500/10 border-rose-500/20";
+      default:
+        return "text-sky-400 bg-sky-500/10 border-sky-500/20";
+    }
+  };
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -98,15 +108,19 @@ function PortfolioContent() {
   // View Modal State
   const [viewProject, setViewProject] = useState<Project | null>(null);
 
-  // Load projects
+  // Load projects and categories
   const loadProjects = async () => {
     setIsLoading(true);
     try {
       const service = getWorkspaceService();
-      const data = await service.getProjects();
-      setProjects(data);
+      const [projectsData, categoriesData] = await Promise.all([
+        service.getProjects(),
+        service.getProjectCategories()
+      ]);
+      setProjects(projectsData);
+      setCategories(categoriesData);
     } catch (err) {
-      console.error("Failed to load portfolio projects:", err);
+      console.error("Failed to load portfolio data:", err);
     } finally {
       setIsLoading(false);
     }
@@ -211,8 +225,8 @@ function PortfolioContent() {
             </SelectTrigger>
             <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
               <SelectItem value="all" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">All Categories</SelectItem>
-              {Object.entries(CAT_LABELS).map(([val, label]) => (
-                <SelectItem key={val} value={val} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">{label}</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.slug} value={c.slug} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">{c.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -276,8 +290,8 @@ function PortfolioContent() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium ${CAT_COLORS[project.cat] || "text-slate-400 bg-slate-500/10 border-slate-500/20"}`}>
-                      {CAT_LABELS[project.cat] || project.cat}
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium ${getCategoryStyles(project.cat)}`}>
+                      {getCategoryName(project.cat)}
                     </span>
                   </TableCell>
                   <TableCell className="text-slate-300 font-medium text-xs">{project.client}</TableCell>
