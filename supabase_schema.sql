@@ -414,3 +414,74 @@ CREATE POLICY "Enable write projects for admin users only"
 -- ('brand', '2024', 'NOVA', 'Nova Financial', 'A Brand Built\nFor the Future', 'IDENTITY\nTHAT OPENS\nDOORS', 'A complete brand identity overhaul for a fintech firm \u2014 logo, type system, colour palette, and a 320-component design system shipped in just six weeks.', 'Complete brand overhaul.', ARRAY['Branding','Design Systems','Strategy'], 'https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85', ARRAY['https://images.unsplash.com/photo-1634733988138-bf2c3a2a13fa?w=1400&q=85','https://images.unsplash.com/photo-1561070791-2526d30994b5?w=900&q=85','https://images.unsplash.com/photo-1558655146-d09347e92766?w=900&q=85'], '[{"num":"42%","label":"Recall \u2191"},{"num":"320+","label":"Components"},{"num":"6wk","label":"Delivery"},{"num":"3","label":"Markets"}]'::jsonb, '[{"name":"Marcus Webb","role":"CMO \u00b7 Nova","text":"It finally reflects who we are. The new identity opened doors we had been knocking on for years."},{"name":"Priya S.","role":"Design Manager","text":"The design system alone made our team ship three times faster."}]'::jsonb);
 
 
+
+-- -------------------------------------------------------------
+-- Project Management Module (Projects -> Workstreams -> Tasks)
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS pm_tasks CASCADE;
+DROP TABLE IF EXISTS pm_workstreams CASCADE;
+DROP TABLE IF EXISTS pm_projects CASCADE;
+
+CREATE TABLE pm_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    client TEXT,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'on_hold', 'completed', 'archived')),
+    start_date DATE,
+    end_date DATE,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE pm_workstreams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    color TEXT NOT NULL DEFAULT '#0EA5E9',
+    sequence INTEGER NOT NULL DEFAULT 0,
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE pm_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workstream_id UUID NOT NULL REFERENCES pm_workstreams(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'blocked', 'done')),
+    assignee TEXT,
+    start_date DATE,
+    due_date DATE,
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+    sequence INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_pm_workstreams_project ON pm_workstreams(project_id);
+CREATE INDEX idx_pm_tasks_workstream ON pm_tasks(workstream_id);
+CREATE INDEX idx_pm_tasks_project ON pm_tasks(project_id);
+
+CREATE TRIGGER update_pm_projects_updated_at BEFORE UPDATE ON pm_projects
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pm_workstreams_updated_at BEFORE UPDATE ON pm_workstreams
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pm_tasks_updated_at BEFORE UPDATE ON pm_tasks
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE pm_projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_workstreams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_tasks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable read pm_projects for all authenticated" ON pm_projects FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Enable write pm_projects for admin/edit" ON pm_projects FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Enable read pm_workstreams for all authenticated" ON pm_workstreams FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Enable write pm_workstreams for admin/edit" ON pm_workstreams FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Enable read pm_tasks for all authenticated" ON pm_tasks FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Enable write pm_tasks for admin/edit" ON pm_tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BookOpen, Settings, Compass, KeyRound, Bell } from "lucide-react";
+import { LayoutDashboard, BookOpen, Settings, Compass, KeyRound, Bell, GanttChartSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -17,6 +17,7 @@ export function Sidebar({ className }: SidebarProps) {
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
     { name: "Credentials Vault", href: "/credentials", icon: KeyRound },
+    { name: "Project Management", href: "/projects", icon: GanttChartSquare },
     { name: "Task Reminders", href: "/reminders", icon: Bell },
     { name: "Portfolio", href: "/portfolio", icon: Compass },
     { name: "Settings", href: "/settings", icon: Settings },

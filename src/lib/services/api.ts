@@ -184,6 +184,61 @@ export interface Project {
   video_url?: string;
 }
 
+// -------------------------------------------------------------
+// Project Management (Workstreams + Tasks + Gantt Timeline)
+// -------------------------------------------------------------
+export type PMStatus = "not_started" | "in_progress" | "blocked" | "done";
+
+export interface PMProject {
+  id: string;
+  name: string;
+  client: string | null;
+  description: string | null;
+  status: "active" | "on_hold" | "completed" | "archived";
+  start_date: string | null; // ISO date
+  end_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Workstream {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  color: string; // hex, used for Gantt bars
+  sequence: number; // ordering; parallel streams just share overlapping dates
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PMTask {
+  id: string;
+  workstream_id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  status: PMStatus;
+  assignee: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  progress: number; // 0-100
+  sequence: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkstreamWithTasks extends Workstream {
+  tasks: PMTask[];
+}
+
+export interface PMProjectDetail extends PMProject {
+  workstreams: WorkstreamWithTasks[];
+}
+
 export interface IWorkspaceService {
   // Authentication / User Persona management
   getCurrentUser(): Promise<User>;
@@ -253,6 +308,21 @@ export interface IWorkspaceService {
   createProjectCategory(name: string): Promise<ProjectCategory>;
   deleteProjectCategory(id: string): Promise<void>;
   uploadProjectFile(file: File): Promise<string>;
+
+  // Project Management
+  getPMProjects(): Promise<PMProject[]>;
+  getPMProjectDetail(id: string): Promise<PMProjectDetail | null>;
+  createPMProject(data: Omit<PMProject, "id" | "created_by" | "created_at" | "updated_at">): Promise<PMProject>;
+  updatePMProject(id: string, data: Partial<PMProject>): Promise<PMProject>;
+  deletePMProject(id: string): Promise<void>;
+
+  createWorkstream(data: Omit<Workstream, "id" | "created_at" | "updated_at">): Promise<Workstream>;
+  updateWorkstream(id: string, data: Partial<Workstream>): Promise<Workstream>;
+  deleteWorkstream(id: string): Promise<void>;
+
+  createPMTask(data: Omit<PMTask, "id" | "created_at" | "updated_at">): Promise<PMTask>;
+  updatePMTask(id: string, data: Partial<PMTask>): Promise<PMTask>;
+  deletePMTask(id: string): Promise<void>;
 }
 
 import { isSupabaseConfigured } from "../supabase";

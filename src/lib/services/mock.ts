@@ -17,6 +17,10 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  PMProject,
+  PMProjectDetail,
+  Workstream,
+  PMTask,
 } from "./api";
 
 export const MOCK_PROJECT_CATEGORIES: ProjectCategory[] = [
@@ -375,6 +379,9 @@ export class MockService implements IWorkspaceService {
   private static KEY_REMINDERS = "revti_reminders";
   private static KEY_PROJECTS = "revti_projects";
   private static KEY_PROJECT_CATEGORIES = "revti_project_categories";
+  private static KEY_PM_PROJECTS = "revti_pm_projects";
+  private static KEY_PM_WORKSTREAMS = "revti_pm_workstreams";
+  private static KEY_PM_TASKS = "revti_pm_tasks";
 
   constructor() {
     // Seed initial values if empty
@@ -391,7 +398,10 @@ export class MockService implements IWorkspaceService {
       StorageManager.get(MockService.KEY_REMINDERS, MOCK_REMINDERS);
       StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
       StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
-      
+      StorageManager.get(MockService.KEY_PM_PROJECTS, [] as PMProject[]);
+      StorageManager.get(MockService.KEY_PM_WORKSTREAMS, [] as Workstream[]);
+      StorageManager.get(MockService.KEY_PM_TASKS, [] as PMTask[]);
+
       const currentUserId = localStorage.getItem(MockService.KEY_CURRENT_USER_ID);
       if (!currentUserId) {
         localStorage.setItem(MockService.KEY_CURRENT_USER_ID, "user-1"); // Default to Meghansh (Admin)
@@ -1030,5 +1040,123 @@ export class MockService implements IWorkspaceService {
       return URL.createObjectURL(file);
     }
     return `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85`;
+  }
+
+  // -------------------------------------------------------------
+  // Project Management
+  // -------------------------------------------------------------
+  private getPMProjectsRaw(): PMProject[] {
+    return StorageManager.get(MockService.KEY_PM_PROJECTS, [] as PMProject[]);
+  }
+  private getWorkstreamsRaw(): Workstream[] {
+    return StorageManager.get(MockService.KEY_PM_WORKSTREAMS, [] as Workstream[]);
+  }
+  private getPMTasksRaw(): PMTask[] {
+    return StorageManager.get(MockService.KEY_PM_TASKS, [] as PMTask[]);
+  }
+
+  async getPMProjects(): Promise<PMProject[]> {
+    return this.getPMProjectsRaw().sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async getPMProjectDetail(id: string): Promise<PMProjectDetail | null> {
+    const project = this.getPMProjectsRaw().find((p) => p.id === id);
+    if (!project) return null;
+    const tasks = this.getPMTasksRaw().filter((t) => t.project_id === id);
+    const workstreams = this.getWorkstreamsRaw()
+      .filter((w) => w.project_id === id)
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((w) => ({
+        ...w,
+        tasks: tasks
+          .filter((t) => t.workstream_id === w.id)
+          .sort((a, b) => a.sequence - b.sequence),
+      }));
+    return { ...project, workstreams };
+  }
+
+  async createPMProject(data: Omit<PMProject, "id" | "created_by" | "created_at" | "updated_at">): Promise<PMProject> {
+    const projects = this.getPMProjectsRaw();
+    const now = new Date().toISOString();
+    const newProject: PMProject = {
+      id: `pm-project-${Date.now()}`,
+      created_by: "user-1",
+      created_at: now,
+      updated_at: now,
+      ...data,
+    };
+    projects.push(newProject);
+    StorageManager.set(MockService.KEY_PM_PROJECTS, projects);
+    return newProject;
+  }
+
+  async updatePMProject(id: string, data: Partial<PMProject>): Promise<PMProject> {
+    const projects = this.getPMProjectsRaw();
+    const index = projects.findIndex((p) => p.id === id);
+    if (index === -1) throw new Error("Project not found");
+    projects[index] = { ...projects[index], ...data, updated_at: new Date().toISOString() };
+    StorageManager.set(MockService.KEY_PM_PROJECTS, projects);
+    return projects[index];
+  }
+
+  async deletePMProject(id: string): Promise<void> {
+    StorageManager.set(MockService.KEY_PM_PROJECTS, this.getPMProjectsRaw().filter((p) => p.id !== id));
+    StorageManager.set(MockService.KEY_PM_WORKSTREAMS, this.getWorkstreamsRaw().filter((w) => w.project_id !== id));
+    StorageManager.set(MockService.KEY_PM_TASKS, this.getPMTasksRaw().filter((t) => t.project_id !== id));
+  }
+
+  async createWorkstream(data: Omit<Workstream, "id" | "created_at" | "updated_at">): Promise<Workstream> {
+    const workstreams = this.getWorkstreamsRaw();
+    const now = new Date().toISOString();
+    const newWorkstream: Workstream = {
+      id: `pm-ws-${Date.now()}`,
+      created_at: now,
+      updated_at: now,
+      ...data,
+    };
+    workstreams.push(newWorkstream);
+    StorageManager.set(MockService.KEY_PM_WORKSTREAMS, workstreams);
+    return newWorkstream;
+  }
+
+  async updateWorkstream(id: string, data: Partial<Workstream>): Promise<Workstream> {
+    const workstreams = this.getWorkstreamsRaw();
+    const index = workstreams.findIndex((w) => w.id === id);
+    if (index === -1) throw new Error("Workstream not found");
+    workstreams[index] = { ...workstreams[index], ...data, updated_at: new Date().toISOString() };
+    StorageManager.set(MockService.KEY_PM_WORKSTREAMS, workstreams);
+    return workstreams[index];
+  }
+
+  async deleteWorkstream(id: string): Promise<void> {
+    StorageManager.set(MockService.KEY_PM_WORKSTREAMS, this.getWorkstreamsRaw().filter((w) => w.id !== id));
+    StorageManager.set(MockService.KEY_PM_TASKS, this.getPMTasksRaw().filter((t) => t.workstream_id !== id));
+  }
+
+  async createPMTask(data: Omit<PMTask, "id" | "created_at" | "updated_at">): Promise<PMTask> {
+    const tasks = this.getPMTasksRaw();
+    const now = new Date().toISOString();
+    const newTask: PMTask = {
+      id: `pm-task-${Date.now()}`,
+      created_at: now,
+      updated_at: now,
+      ...data,
+    };
+    tasks.push(newTask);
+    StorageManager.set(MockService.KEY_PM_TASKS, tasks);
+    return newTask;
+  }
+
+  async updatePMTask(id: string, data: Partial<PMTask>): Promise<PMTask> {
+    const tasks = this.getPMTasksRaw();
+    const index = tasks.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error("Task not found");
+    tasks[index] = { ...tasks[index], ...data, updated_at: new Date().toISOString() };
+    StorageManager.set(MockService.KEY_PM_TASKS, tasks);
+    return tasks[index];
+  }
+
+  async deletePMTask(id: string): Promise<void> {
+    StorageManager.set(MockService.KEY_PM_TASKS, this.getPMTasksRaw().filter((t) => t.id !== id));
   }
 }

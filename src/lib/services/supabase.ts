@@ -17,6 +17,11 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  PMProject,
+  PMProjectDetail,
+  Workstream,
+  PMTask,
+  WorkstreamWithTasks,
 } from "./api";
 import { MOCK_PROJECTS, MockService } from "./mock";
 
@@ -889,5 +894,126 @@ export class SupabaseService implements IWorkspaceService {
       .getPublicUrl(filePath);
 
     return publicUrl;
+  }
+
+  // -------------------------------------------------------------
+  // Project Management
+  // -------------------------------------------------------------
+  async getPMProjects(): Promise<PMProject[]> {
+    const { data, error } = await this.client
+      .from("pm_projects")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getPMProjectDetail(id: string): Promise<PMProjectDetail | null> {
+    const { data: project, error } = await this.client
+      .from("pm_projects")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error || !project) return null;
+
+    const { data: workstreams, error: wsError } = await this.client
+      .from("pm_workstreams")
+      .select("*")
+      .eq("project_id", id)
+      .order("sequence", { ascending: true });
+    if (wsError) throw wsError;
+
+    const { data: tasks, error: taskError } = await this.client
+      .from("pm_tasks")
+      .select("*")
+      .eq("project_id", id)
+      .order("sequence", { ascending: true });
+    if (taskError) throw taskError;
+
+    const withTasks: WorkstreamWithTasks[] = (workstreams || []).map((w) => ({
+      ...w,
+      tasks: (tasks || []).filter((t) => t.workstream_id === w.id),
+    }));
+
+    return { ...project, workstreams: withTasks };
+  }
+
+  async createPMProject(data: Omit<PMProject, "id" | "created_by" | "created_at" | "updated_at">): Promise<PMProject> {
+    const currentUser = await this.getCurrentUser();
+    const { data: created, error } = await this.client
+      .from("pm_projects")
+      .insert({ ...data, created_by: currentUser.id })
+      .select()
+      .single();
+    if (error) throw error;
+    return created;
+  }
+
+  async updatePMProject(id: string, data: Partial<PMProject>): Promise<PMProject> {
+    const { data: updated, error } = await this.client
+      .from("pm_projects")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
+  async deletePMProject(id: string): Promise<void> {
+    const { error } = await this.client.from("pm_projects").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async createWorkstream(data: Omit<Workstream, "id" | "created_at" | "updated_at">): Promise<Workstream> {
+    const { data: created, error } = await this.client
+      .from("pm_workstreams")
+      .insert(data)
+      .select()
+      .single();
+    if (error) throw error;
+    return created;
+  }
+
+  async updateWorkstream(id: string, data: Partial<Workstream>): Promise<Workstream> {
+    const { data: updated, error } = await this.client
+      .from("pm_workstreams")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
+  async deleteWorkstream(id: string): Promise<void> {
+    const { error } = await this.client.from("pm_workstreams").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async createPMTask(data: Omit<PMTask, "id" | "created_at" | "updated_at">): Promise<PMTask> {
+    const { data: created, error } = await this.client
+      .from("pm_tasks")
+      .insert(data)
+      .select()
+      .single();
+    if (error) throw error;
+    return created;
+  }
+
+  async updatePMTask(id: string, data: Partial<PMTask>): Promise<PMTask> {
+    const { data: updated, error } = await this.client
+      .from("pm_tasks")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
+  async deletePMTask(id: string): Promise<void> {
+    const { error } = await this.client.from("pm_tasks").delete().eq("id", id);
+    if (error) throw error;
   }
 }
