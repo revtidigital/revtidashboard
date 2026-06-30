@@ -192,11 +192,25 @@ function DeliverablesList({
   const [saving, setSaving] = useState(false);
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nt.title.trim() || !ws) return;
+    if (!nt.title.trim()) return;
     setSaving(true);
     try {
+      // a list project may have no workstream yet — create a default one
+      let wsId = ws?.id;
+      if (!wsId) {
+        const createdWs = await getWorkspaceService().createWorkstream({
+          project_id: project.id,
+          name: "Tasks",
+          description: null,
+          color: "#0EA5E9",
+          sequence: 0,
+          start_date: null,
+          end_date: null,
+        });
+        wsId = createdWs.id;
+      }
       await getWorkspaceService().createPMTask({
-        workstream_id: ws.id,
+        workstream_id: wsId,
         project_id: project.id,
         title: nt.title.trim(),
         description: null,
@@ -205,7 +219,7 @@ function DeliverablesList({
         start_date: nt.start || null,
         due_date: nt.due || null,
         progress: 0,
-        sequence: ws.tasks.length,
+        sequence: ws?.tasks.length ?? 0,
       });
       setNt({ title: "", assignee: "", start: "", due: "" });
       setShowForm(false);
@@ -233,7 +247,7 @@ function DeliverablesList({
         <h2 className="text-sm font-semibold text-white">Deliverables</h2>
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-[#64748B]">{tasks.length} tasks · {projectProgress(project)}% done</span>
-          {isAuthorized && ws && (
+          {isAuthorized && (
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowForm((s) => !s)}>
               {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               {showForm ? "Cancel" : "Add task"}
@@ -242,7 +256,7 @@ function DeliverablesList({
         </div>
       </div>
 
-      {showForm && ws && (
+      {showForm && (
         <form onSubmit={addTask} className="flex flex-wrap items-end gap-3 border-b border-[#1E2D47] bg-[#0B1120]/40 px-5 py-3">
           <div className="flex-1 min-w-[180px]">
             <Label className="text-[11px] text-[#64748B]">Task</Label>
