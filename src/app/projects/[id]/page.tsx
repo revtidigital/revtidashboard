@@ -142,16 +142,43 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
 
   const weekCols = Array.from({ length: range.weeks }, (_, i) => new Date(range.start + i * 7 * DAY));
 
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const todayLeft =
+    todayMs >= range.start && todayMs <= range.start + range.span
+      ? ((todayMs - range.start) / range.span) * 100
+      : null;
+
   const barGeometry = (s: string | null, e: string | null) => {
     const sd = toDate(s)?.getTime();
     let ed = toDate(e)?.getTime();
     if (!sd && !ed) return null;
     const startMs = sd ?? ed!;
     ed = ed ?? startMs + DAY;
-    const left = ((startMs - range.start) / range.span) * 100;
-    const width = Math.max(((ed - startMs + DAY) / range.span) * 100, 1.5);
+    const rawLeft = ((startMs - range.start) / range.span) * 100;
+    const left = Math.max(rawLeft, 0);
+    const rawWidth = ((ed - startMs + DAY) / range.span) * 100;
+    const width = Math.max(Math.min(rawWidth, 100 - left), 1.5);
     return { left: `${left}%`, width: `${width}%` };
   };
+
+  // Vertical week gridlines + today marker, rendered behind the bars
+  const TimelineGrid = () => (
+    <div className="pointer-events-none absolute inset-0">
+      {weekCols.map((_, i) => (
+        <div
+          key={i}
+          className="absolute inset-y-0 border-l border-[#1E2D47]/40"
+          style={{ left: `${(i / range.weeks) * 100}%` }}
+        />
+      ))}
+      {todayLeft !== null && (
+        <div
+          className="absolute inset-y-0 w-px bg-[#0EA5E9]/60"
+          style={{ left: `${todayLeft}%` }}
+        />
+      )}
+    </div>
+  );
 
   const hasAnyDates = project.workstreams.some(
     (w) => w.start_date || w.end_date || w.tasks.some((t) => t.start_date || t.due_date)
@@ -203,6 +230,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                       </div>
                     </div>
                     <div className="relative h-9 flex-1">
+                      <TimelineGrid />
                       {wsBar && (
                         <div
                           className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full"
@@ -221,6 +249,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                           <span className="truncate text-xs text-[#94A3B8]">{t.title}</span>
                         </div>
                         <div className="relative h-8 flex-1">
+                          <TimelineGrid />
                           {tBar && (
                             <div
                               className="absolute top-1/2 h-2.5 -translate-y-1/2 overflow-hidden rounded-full bg-[#1E2D47]"
