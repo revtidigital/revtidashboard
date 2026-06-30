@@ -119,7 +119,7 @@ function ProjectDetailContent({ id }: { id: string }) {
       </div>
 
       {project.workstreams.length <= 1 ? (
-        <DeliverablesList project={project} />
+        <DeliverablesList project={project} isAuthorized={isAuthorized} reload={load} />
       ) : (
         <>
           <TodayFocus project={project} />
@@ -135,19 +135,36 @@ function ProjectDetailContent({ id }: { id: string }) {
 /* ------------------------------------------------------------------ */
 /* Deliverables list — simple task + deadline view (no Gantt)          */
 /* ------------------------------------------------------------------ */
-function DeliverablesList({ project }: { project: PMProjectDetail }) {
+function DeliverablesList({
+  project,
+  isAuthorized,
+  reload,
+}: {
+  project: PMProjectDetail;
+  isAuthorized: boolean;
+  reload: () => Promise<void>;
+}) {
   const today = new Date().setHours(0, 0, 0, 0);
   const tasks = project.workstreams
     .flatMap((w) => w.tasks)
     .slice()
     .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
 
-  const deadlineTone = (due: string | null, status: PMStatus) => {
+  const update = async (task: PMTask, data: Partial<PMTask>) => {
+    try {
+      await getWorkspaceService().updatePMTask(task.id, data);
+      await reload();
+    } catch (err) {
+      console.error("Failed to update task:", err);
+    }
+  };
+
+  const dueTone = (due: string | null, status: PMStatus) => {
     const d = toDate(due)?.getTime();
     if (status === "done") return "text-[#10B981]";
     if (d == null) return "text-[#64748B]";
-    if (d < today) return "text-[#EF4444] font-semibold";        // overdue
-    if (d - today <= 7 * DAY) return "text-[#F59E0B]";           // due soon
+    if (d < today) return "text-[#EF4444] font-semibold"; // overdue
+    if (d - today <= 7 * DAY) return "text-[#F59E0B]"; // due soon
     return "text-[#94A3B8]";
   };
 
@@ -160,20 +177,75 @@ function DeliverablesList({ project }: { project: PMProjectDetail }) {
       {tasks.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-[#64748B]">No tasks yet.</div>
       ) : (
-        <ul className="divide-y divide-[#1E2D47]/40">
-          {tasks.map((t) => (
-            <li key={t.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS_META[t.status].dot }} />
-              <span className="min-w-[160px] flex-1 text-sm text-white">{t.title}</span>
-              {t.assignee && <span className="text-[11px] text-[#64748B]">@{t.assignee}</span>}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_META[t.status].cls}`}>{STATUS_META[t.status].label}</span>
-              <span className={`flex items-center gap-1.5 text-xs ${deadlineTone(t.due_date, t.status)}`}>
-                <Calendar className="h-3.5 w-3.5" />
-                {fmt(t.due_date)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left">
+            <thead>
+              <tr className="border-b border-[#1E2D47] text-[11px] uppercase tracking-wider text-[#64748B]">
+                <th className="px-5 py-2 font-medium">Task</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Assignee</th>
+                <th className="px-3 py-2 font-medium">Timeline</th>
+                <th className="px-3 py-2 font-medium">Due</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1E2D47]/40">
+              {tasks.map((t) => (
+                <tr key={t.id} className="align-middle hover:bg-[#0B1120]/40">
+                  <td className="px-5 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_META[t.status].dot }} />
+                      <span className="text-sm text-white">{t.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {isAuthorized ? (
+                      <Select
+                        value={t.status}
+                        onValueChange={(v) => update(t, { status: v as PMStatus, progress: progressForStatus(v as PMStatus, t.progress) })}
+                      >
+                        <SelectTrigger className="h-7 w-[130px] text-xs">
+                          <SelectValue>{(v: PMStatus) => STATUS_META[v]?.label ?? v}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(STATUS_META) as PMStatus[]).map((s) => (
+                            <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_META[t.status].cls}`}>{STATUS_META[t.status].label}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-[#94A3B8]">{t.assignee ? `@${t.assignee}` : "—"}</td>
+                  <td className="px-3 py-2.5">
+                    {isAuthorized ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="date"
+                          value={t.start_date ?? ""}
+                          onChange={(e) => update(t, { start_date: e.target.value || null })}
+                          className="h-7 w-[140px] text-xs"
+                        />
+                        <span className="text-[#475569]">→</span>
+                        <Input
+                          type="date"
+                          value={t.due_date ?? ""}
+                          onChange={(e) => update(t, { due_date: e.target.value || null })}
+                          className="h-7 w-[140px] text-xs"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">{fmt(t.start_date)} → {fmt(t.due_date)}</span>
+                    )}
+                  </td>
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-xs ${dueTone(t.due_date, t.status)}`}>
+                    <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{fmt(t.due_date)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Card>
   );
