@@ -226,7 +226,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
             {/* ---- header: month band + week dates ---- */}
             <div className="flex border-b border-[#1E2D47]">
               <div
-                className="sticky left-0 z-20 shrink-0 self-stretch border-r border-[#1E2D47] bg-[#0F1629] px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-[#64748B]"
+                className="sticky left-0 z-[1] shrink-0 self-stretch border-r border-[#1E2D47] bg-[#0F1629] px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-[#64748B]"
                 style={{ width: LABEL_W }}
               >
                 Workstream / Task
@@ -262,7 +262,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                   {/* workstream summary row */}
                   <div className="flex items-stretch border-b border-[#1E2D47]/50">
                     <div
-                      className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] px-4"
+                      className="sticky left-0 z-[1] flex shrink-0 items-center gap-2 border-r border-[#1E2D47] px-4"
                       style={{ width: LABEL_W, backgroundColor: rowBg }}
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: w.color }} />
@@ -286,7 +286,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                     return (
                       <div key={t.id} className="flex items-stretch border-b border-[#1E2D47]/20">
                         <div
-                          className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] py-1.5 pl-9 pr-3"
+                          className="sticky left-0 z-[1] flex shrink-0 items-center gap-2 border-r border-[#1E2D47] py-1.5 pl-9 pr-3"
                           style={{ width: LABEL_W, backgroundColor: rowBg }}
                         >
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.dot }} />
