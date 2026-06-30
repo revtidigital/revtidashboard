@@ -118,12 +118,64 @@ function ProjectDetailContent({ id }: { id: string }) {
         </div>
       </div>
 
-      <TodayFocus project={project} />
-
-      <GanttChart project={project} />
+      {project.workstreams.length <= 1 ? (
+        <DeliverablesList project={project} />
+      ) : (
+        <>
+          <TodayFocus project={project} />
+          <GanttChart project={project} />
+        </>
+      )}
 
       <Workstreams project={project} isAuthorized={isAuthorized} reload={load} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Deliverables list — simple task + deadline view (no Gantt)          */
+/* ------------------------------------------------------------------ */
+function DeliverablesList({ project }: { project: PMProjectDetail }) {
+  const today = new Date().setHours(0, 0, 0, 0);
+  const tasks = project.workstreams
+    .flatMap((w) => w.tasks)
+    .slice()
+    .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
+
+  const deadlineTone = (due: string | null, status: PMStatus) => {
+    const d = toDate(due)?.getTime();
+    if (status === "done") return "text-[#10B981]";
+    if (d == null) return "text-[#64748B]";
+    if (d < today) return "text-[#EF4444] font-semibold";        // overdue
+    if (d - today <= 7 * DAY) return "text-[#F59E0B]";           // due soon
+    return "text-[#94A3B8]";
+  };
+
+  return (
+    <Card className="border-[#1E2D47] bg-[#0F1629] p-0 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[#1E2D47] px-5 py-3">
+        <h2 className="text-sm font-semibold text-white">Deliverables</h2>
+        <span className="text-[11px] text-[#64748B]">{tasks.length} tasks · {projectProgress(project)}% done</span>
+      </div>
+      {tasks.length === 0 ? (
+        <div className="px-5 py-10 text-center text-sm text-[#64748B]">No tasks yet.</div>
+      ) : (
+        <ul className="divide-y divide-[#1E2D47]/40">
+          {tasks.map((t) => (
+            <li key={t.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS_META[t.status].dot }} />
+              <span className="min-w-[160px] flex-1 text-sm text-white">{t.title}</span>
+              {t.assignee && <span className="text-[11px] text-[#64748B]">@{t.assignee}</span>}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_META[t.status].cls}`}>{STATUS_META[t.status].label}</span>
+              <span className={`flex items-center gap-1.5 text-xs ${deadlineTone(t.due_date, t.status)}`}>
+                <Calendar className="h-3.5 w-3.5" />
+                {fmt(t.due_date)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
