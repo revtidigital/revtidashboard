@@ -428,6 +428,7 @@ CREATE TABLE pm_projects (
     client TEXT,
     description TEXT,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'on_hold', 'completed', 'archived')),
+    view_mode TEXT NOT NULL DEFAULT 'gantt' CHECK (view_mode IN ('gantt', 'list')),
     start_date DATE,
     end_date DATE,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
