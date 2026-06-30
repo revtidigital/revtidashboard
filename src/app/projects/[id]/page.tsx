@@ -44,6 +44,11 @@ const toDate = (s: string | null) => (s ? new Date(s + "T00:00:00") : null);
 const fmt = (d: string | null) =>
   d ? new Date(d + "T00:00:00").toLocaleDateString("en-US", { day: "numeric", month: "short" }) : "—";
 
+const avgProgress = (tasks: PMTask[]) =>
+  tasks.length ? Math.round(tasks.reduce((s, t) => s + (t.progress || 0), 0) / tasks.length) : 0;
+const wsProgress = (w: WorkstreamWithTasks) => avgProgress(w.tasks);
+const projectProgress = (p: PMProjectDetail) => avgProgress(p.workstreams.flatMap((w) => w.tasks));
+
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return (
@@ -102,6 +107,12 @@ function ProjectDetailContent({ id }: { id: string }) {
           <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{fmt(project.start_date)} → {fmt(project.end_date)}</span>
         </div>
         {project.description && <p className="mt-2 max-w-2xl text-sm text-[#64748B]">{project.description}</p>}
+        <div className="mt-3 flex max-w-md items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1E2D47]">
+            <div className="h-full rounded-full bg-[#0EA5E9] transition-all" style={{ width: `${projectProgress(project)}%` }} />
+          </div>
+          <span className="text-xs font-semibold text-white">{projectProgress(project)}%</span>
+        </div>
       </div>
 
       <TodayFocus project={project} />
@@ -205,8 +216,7 @@ function TodayFocus({ project }: { project: PMProjectDetail }) {
 /* Fixed scale: every label, gridline and bar is positioned on the SAME
    pixel track, so nothing can drift out of alignment regardless of how
    many weeks the project spans. */
-const WEEK_W = 64;           // px per week column
-const DAY_W = WEEK_W / 7;    // px per day
+const WEEK_W = 64;           // px per week column (default "week" zoom)
 const LABEL_W = 224;         // px for the sticky name column
 const ROW_H = 34;            // px per task row
 
@@ -243,11 +253,16 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
     const start = snapStart.getTime();
     const weeks = Math.ceil((Math.ceil((max - start) / DAY) + 1) / 7);
     const end = start + weeks * 7 * DAY;
-    return { start, end, weeks, trackW: weeks * WEEK_W };
+    return { start, end, weeks, totalDays: weeks * 7 };
   }, [project]);
 
+  // zoom controls how many px each day occupies
+  const [zoom, setZoom] = useState<"day" | "week" | "month">("week");
+  const dayW = zoom === "day" ? 26 : zoom === "month" ? 3.4 : WEEK_W / 7;
+  const trackW = range.totalDays * dayW;
+
   // ms -> px on the track
-  const x = (ms: number) => ((ms - range.start) / DAY) * DAY_W;
+  const x = (ms: number) => ((ms - range.start) / DAY) * dayW;
 
   // month bands across the top
   const months = useMemo(() => {
@@ -261,12 +276,12 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
       out.push({
         label: cur.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
         left: x(segStart),
-        width: ((segEnd - segStart) / DAY) * DAY_W,
+        width: ((segEnd - segStart) / DAY) * dayW,
       });
       cur.setMonth(cur.getMonth() + 1);
     }
     return out;
-  }, [range]);
+  }, [range, dayW]);
 
   const todayMs = new Date().setHours(0, 0, 0, 0);
   const todayX = todayMs >= range.start && todayMs <= range.end ? x(todayMs) : null;
@@ -286,20 +301,51 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
     (w) => w.start_date || w.end_date || w.tasks.some((t) => t.start_date || t.due_date)
   );
 
-  // gridlines spanning the whole body, drawn once behind every row
-  const weekLines = Array.from({ length: range.weeks + 1 }, (_, i) => i * WEEK_W);
+  // weekly gridlines spanning the whole body, drawn once behind every row
+  const weekLines = Array.from({ length: range.weeks + 1 }, (_, i) => i * 7 * dayW);
+
+  // header date ticks adapt to the zoom level
+  const ticks =
+    zoom === "month"
+      ? []
+      : zoom === "day"
+      ? Array.from({ length: range.totalDays }, (_, i) => ({
+          left: i * dayW,
+          width: dayW,
+          label: String(new Date(range.start + i * DAY).getDate()),
+        }))
+      : Array.from({ length: range.weeks }, (_, i) => ({
+          left: i * 7 * dayW,
+          width: 7 * dayW,
+          label: String(new Date(range.start + i * 7 * DAY).getDate()),
+        }));
 
   return (
     <Card className="border-[#1E2D47] bg-[#0F1629] p-0 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2D47] px-5 py-3">
         <h2 className="text-sm font-semibold text-white">Timeline</h2>
-        <div className="flex items-center gap-3 text-[11px] text-[#64748B]">
-          {(["not_started", "in_progress", "blocked", "done"] as PMStatus[]).map((s) => (
-            <span key={s} className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_META[s].dot }} />
-              {STATUS_META[s].label}
-            </span>
-          ))}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3 text-[11px] text-[#64748B]">
+            {(["not_started", "in_progress", "blocked", "done"] as PMStatus[]).map((s) => (
+              <span key={s} className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_META[s].dot }} />
+                {STATUS_META[s].label}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center rounded-md border border-[#1E2D47] p-0.5">
+            {(["day", "week", "month"] as const).map((z) => (
+              <button
+                key={z}
+                onClick={() => setZoom(z)}
+                className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize transition ${
+                  zoom === z ? "bg-[#0EA5E9] text-white" : "text-[#94A3B8] hover:text-white"
+                }`}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -310,7 +356,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
       ) : (
         <div className="overflow-x-auto">
           {/* one shared grid: label column (sticky) + fixed-width track */}
-          <div style={{ width: LABEL_W + range.trackW }}>
+          <div style={{ width: LABEL_W + trackW }}>
             {/* ---- header: month band + week dates ---- */}
             <div className="flex border-b border-[#1E2D47]">
               <div
@@ -319,7 +365,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
               >
                 Workstream / Task
               </div>
-              <div className="relative" style={{ width: range.trackW, height: 44 }}>
+              <div className="relative" style={{ width: trackW, height: 44 }}>
                 {months.map((m, i) => (
                   <div
                     key={i}
@@ -329,13 +375,13 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                     {m.width > 30 ? m.label : ""}
                   </div>
                 ))}
-                {Array.from({ length: range.weeks }, (_, i) => (
+                {ticks.map((t, i) => (
                   <div
                     key={i}
-                    className="absolute bottom-0 h-6 border-l border-[#1E2D47]/40 px-1 pt-1 text-[10px] text-[#64748B]"
-                    style={{ left: i * WEEK_W, width: WEEK_W }}
+                    className="absolute bottom-0 h-6 overflow-hidden border-l border-[#1E2D47]/40 px-1 pt-1 text-[10px] text-[#64748B]"
+                    style={{ left: t.left, width: t.width }}
                   >
-                    {new Date(range.start + i * 7 * DAY).getDate()}
+                    {t.width > 14 ? t.label : ""}
                   </div>
                 ))}
               </div>
@@ -354,9 +400,10 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                       style={{ width: LABEL_W, backgroundColor: rowBg }}
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: w.color }} />
-                      <span className="truncate text-[13px] font-semibold text-white">{w.name}</span>
+                      <span className="flex-1 truncate text-[13px] font-semibold text-white">{w.name}</span>
+                      <span className="shrink-0 text-[11px] font-medium tabular-nums text-[#94A3B8]">{wsProgress(w)}%</span>
                     </div>
-                    <div className="relative" style={{ width: range.trackW, height: ROW_H + 4 }}>
+                    <div className="relative" style={{ width: trackW, height: ROW_H + 4 }}>
                       <GridBg lines={weekLines} todayX={todayX} />
                       {wsBar && (
                         <div
@@ -380,7 +427,7 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.dot }} />
                           <span className="truncate text-xs text-[#94A3B8]">{t.title}</span>
                         </div>
-                        <div className="relative" style={{ width: range.trackW, height: ROW_H }}>
+                        <div className="relative" style={{ width: trackW, height: ROW_H }}>
                           <GridBg lines={weekLines} todayX={todayX} />
                           {tBar && (
                             <div
