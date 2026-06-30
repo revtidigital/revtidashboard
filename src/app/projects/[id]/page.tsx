@@ -124,10 +124,9 @@ function ProjectDetailContent({ id }: { id: string }) {
         <>
           <TodayFocus project={project} />
           <GanttChart project={project} />
+          <Workstreams project={project} isAuthorized={isAuthorized} reload={load} />
         </>
       )}
-
-      <Workstreams project={project} isAuthorized={isAuthorized} reload={load} />
     </div>
   );
 }
