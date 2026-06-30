@@ -185,6 +185,39 @@ function DeliverablesList({
     }
   };
 
+  // add-task form
+  const ws = project.workstreams[0];
+  const [showForm, setShowForm] = useState(false);
+  const [nt, setNt] = useState({ title: "", assignee: "", start: "", due: "" });
+  const [saving, setSaving] = useState(false);
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nt.title.trim() || !ws) return;
+    setSaving(true);
+    try {
+      await getWorkspaceService().createPMTask({
+        workstream_id: ws.id,
+        project_id: project.id,
+        title: nt.title.trim(),
+        description: null,
+        status: "not_started",
+        assignee: nt.assignee.trim() || null,
+        start_date: nt.start || null,
+        due_date: nt.due || null,
+        progress: 0,
+        sequence: ws.tasks.length,
+      });
+      setNt({ title: "", assignee: "", start: "", due: "" });
+      setShowForm(false);
+      await reload();
+    } catch (err) {
+      console.error(err);
+      alert("Could not add task.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const dueTone = (due: string | null, status: PMStatus) => {
     const d = toDate(due)?.getTime();
     if (status === "done") return "text-[#10B981]";
@@ -196,10 +229,41 @@ function DeliverablesList({
 
   return (
     <Card className="border-[#1E2D47] bg-[#0F1629] p-0 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[#1E2D47] px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2D47] px-5 py-3">
         <h2 className="text-sm font-semibold text-white">Deliverables</h2>
-        <span className="text-[11px] text-[#64748B]">{tasks.length} tasks · {projectProgress(project)}% done</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-[#64748B]">{tasks.length} tasks · {projectProgress(project)}% done</span>
+          {isAuthorized && ws && (
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowForm((s) => !s)}>
+              {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {showForm ? "Cancel" : "Add task"}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {showForm && ws && (
+        <form onSubmit={addTask} className="flex flex-wrap items-end gap-3 border-b border-[#1E2D47] bg-[#0B1120]/40 px-5 py-3">
+          <div className="flex-1 min-w-[180px]">
+            <Label className="text-[11px] text-[#64748B]">Task</Label>
+            <Input value={nt.title} onChange={(e) => setNt({ ...nt, title: e.target.value })} placeholder="e.g. SEO audit" required className="h-8 text-xs" />
+          </div>
+          <div>
+            <Label className="text-[11px] text-[#64748B]">Assignee</Label>
+            <Input value={nt.assignee} onChange={(e) => setNt({ ...nt, assignee: e.target.value })} placeholder="Name" className="h-8 w-[120px] text-xs" />
+          </div>
+          <div>
+            <Label className="text-[11px] text-[#64748B]">Start</Label>
+            <Input type="date" value={nt.start} onChange={(e) => setNt({ ...nt, start: e.target.value })} className="h-8 w-[140px] text-xs" />
+          </div>
+          <div>
+            <Label className="text-[11px] text-[#64748B]">Due</Label>
+            <Input type="date" value={nt.due} onChange={(e) => setNt({ ...nt, due: e.target.value })} className="h-8 w-[140px] text-xs" />
+          </div>
+          <Button type="submit" size="sm" disabled={saving} className="h-8 text-xs">{saving ? "Adding…" : "Add"}</Button>
+        </form>
+      )}
+
       {tasks.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-[#64748B]">No tasks yet.</div>
       ) : (
