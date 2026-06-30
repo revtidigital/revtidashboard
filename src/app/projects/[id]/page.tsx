@@ -47,6 +47,9 @@ const fmt = (d: string | null) =>
 const avgProgress = (tasks: PMTask[]) =>
   tasks.length ? Math.round(tasks.reduce((s, t) => s + (t.progress || 0), 0) / tasks.length) : 0;
 const wsProgress = (w: WorkstreamWithTasks) => avgProgress(w.tasks);
+// keep progress consistent with status: done=100, not_started=0, otherwise keep
+const progressForStatus = (status: PMStatus, current: number) =>
+  status === "done" ? 100 : status === "not_started" ? 0 : current;
 const projectProgress = (p: PMProjectDetail) => avgProgress(p.workstreams.flatMap((w) => w.tasks));
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -655,7 +658,7 @@ function WorkstreamCard({ workstream, projectId, isAuthorized, reload }: { works
               {t.assignee && <span className="text-[11px] text-[#94A3B8]">@{t.assignee}</span>}
               <span className="text-[11px] text-[#64748B]">{fmt(t.start_date)} → {fmt(t.due_date)}</span>
               {isAuthorized ? (
-                <Select value={t.status} onValueChange={(v) => updateTask(t, { status: v as PMStatus, progress: v === "done" ? 100 : t.progress })}>
+                <Select value={t.status} onValueChange={(v) => updateTask(t, { status: v as PMStatus, progress: progressForStatus(v as PMStatus, t.progress) })}>
                   <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue>{(v: PMStatus) => STATUS_META[v]?.label ?? v}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {(Object.keys(STATUS_META) as PMStatus[]).map((s) => (
