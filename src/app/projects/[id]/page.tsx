@@ -521,7 +521,7 @@ function WorkstreamCard({ workstream, projectId, isAuthorized, reload }: { works
               <span className="text-[11px] text-[#64748B]">{fmt(t.start_date)} → {fmt(t.due_date)}</span>
               {isAuthorized ? (
                 <Select value={t.status} onValueChange={(v) => updateTask(t, { status: v as PMStatus, progress: v === "done" ? 100 : t.progress })}>
-                  <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue>{(v: PMStatus) => STATUS_META[v]?.label ?? v}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {(Object.keys(STATUS_META) as PMStatus[]).map((s) => (
                       <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
@@ -565,7 +565,7 @@ function WorkstreamCard({ workstream, projectId, isAuthorized, reload }: { works
                   <div className="space-y-1">
                     <Label className="text-xs">Status</Label>
                     <Select value={status} onValueChange={(v) => setStatus(v as PMStatus)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue>{(v: PMStatus) => STATUS_META[v]?.label ?? v}</SelectValue></SelectTrigger>
                       <SelectContent>
                         {(Object.keys(STATUS_META) as PMStatus[]).map((s) => (
                           <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
