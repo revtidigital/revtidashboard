@@ -195,6 +195,7 @@ export interface PMProject {
   client: string | null;
   description: string | null;
   status: "active" | "on_hold" | "completed" | "archived";
+  view_mode?: "gantt" | "list" | null; // gantt = roadmap timeline, list = deliverables table
   start_date: string | null; // ISO date
   end_date: string | null;
   created_by: string | null;

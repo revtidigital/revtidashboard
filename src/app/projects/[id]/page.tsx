@@ -110,15 +110,42 @@ function ProjectDetailContent({ id }: { id: string }) {
           <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{fmt(project.start_date)} → {fmt(project.end_date)}</span>
         </div>
         {project.description && <p className="mt-2 max-w-2xl text-sm text-[#64748B]">{project.description}</p>}
-        <div className="mt-3 flex max-w-md items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1E2D47]">
-            <div className="h-full rounded-full bg-[#0EA5E9] transition-all" style={{ width: `${projectProgress(project)}%` }} />
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <div className="flex max-w-md flex-1 items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1E2D47]">
+              <div className="h-full rounded-full bg-[#0EA5E9] transition-all" style={{ width: `${projectProgress(project)}%` }} />
+            </div>
+            <span className="text-xs font-semibold text-white">{projectProgress(project)}%</span>
           </div>
-          <span className="text-xs font-semibold text-white">{projectProgress(project)}%</span>
+          {isAuthorized && (
+            <div className="flex items-center rounded-md border border-[#1E2D47] p-0.5">
+              {([
+                { v: "gantt", label: "Gantt" },
+                { v: "list", label: "List" },
+              ] as const).map((m) => {
+                const active = (project.view_mode ?? "gantt") === m.v;
+                return (
+                  <button
+                    key={m.v}
+                    onClick={async () => {
+                      if (active) return;
+                      await getWorkspaceService().updatePMProject(project.id, { view_mode: m.v });
+                      await load();
+                    }}
+                    className={`rounded px-3 py-1 text-[11px] font-medium transition ${
+                      active ? "bg-[#0EA5E9] text-white" : "text-[#94A3B8] hover:text-white"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {project.workstreams.length <= 1 ? (
+      {project.view_mode === "list" ? (
         <DeliverablesList project={project} isAuthorized={isAuthorized} reload={load} />
       ) : (
         <>
