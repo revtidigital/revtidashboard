@@ -114,6 +114,27 @@ function ProjectDetailContent({ id }: { id: string }) {
 /* ------------------------------------------------------------------ */
 /* Gantt timeline                                                      */
 /* ------------------------------------------------------------------ */
+/* Fixed scale: every label, gridline and bar is positioned on the SAME
+   pixel track, so nothing can drift out of alignment regardless of how
+   many weeks the project spans. */
+const WEEK_W = 64;           // px per week column
+const DAY_W = WEEK_W / 7;    // px per day
+const LABEL_W = 224;         // px for the sticky name column
+const ROW_H = 34;            // px per task row
+
+function GridBg({ lines, todayX }: { lines: number[]; todayX: number | null }) {
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {lines.map((l, i) => (
+        <div key={i} className="absolute inset-y-0 border-l border-[#1E2D47]/30" style={{ left: l }} />
+      ))}
+      {todayX !== null && (
+        <div className="absolute inset-y-0 w-px bg-[#0EA5E9]/70" style={{ left: todayX }} />
+      )}
+    </div>
+  );
+}
+
 function GanttChart({ project }: { project: PMProjectDetail }) {
   const range = useMemo(() => {
     const dates: number[] = [];
@@ -128,67 +149,72 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
     const min = dates.length ? Math.min(...dates) : fallback;
     let max = dates.length ? Math.max(...dates) : min + 56 * DAY;
     if (max <= min) max = min + 14 * DAY;
-    // snap to week (Monday) boundaries for clean columns
+    // snap start back to Monday for clean week columns
     const snapStart = new Date(min);
     const dow = (snapStart.getDay() + 6) % 7; // 0 = Monday
     snapStart.setDate(snapStart.getDate() - dow);
     snapStart.setHours(0, 0, 0, 0);
     const start = snapStart.getTime();
-    const totalDays = Math.ceil((max - start) / DAY) + 1;
-    const weeks = Math.ceil(totalDays / 7);
-    const span = weeks * 7 * DAY;
-    return { start, span, weeks };
+    const weeks = Math.ceil((Math.ceil((max - start) / DAY) + 1) / 7);
+    const end = start + weeks * 7 * DAY;
+    return { start, end, weeks, trackW: weeks * WEEK_W };
   }, [project]);
 
-  const weekCols = Array.from({ length: range.weeks }, (_, i) => new Date(range.start + i * 7 * DAY));
+  // ms -> px on the track
+  const x = (ms: number) => ((ms - range.start) / DAY) * DAY_W;
+
+  // month bands across the top
+  const months = useMemo(() => {
+    const out: { label: string; left: number; width: number }[] = [];
+    const cur = new Date(range.start);
+    cur.setDate(1); cur.setHours(0, 0, 0, 0);
+    while (cur.getTime() < range.end) {
+      const next = new Date(cur); next.setMonth(next.getMonth() + 1);
+      const segStart = Math.max(cur.getTime(), range.start);
+      const segEnd = Math.min(next.getTime(), range.end);
+      out.push({
+        label: cur.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        left: x(segStart),
+        width: ((segEnd - segStart) / DAY) * DAY_W,
+      });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return out;
+  }, [range]);
 
   const todayMs = new Date().setHours(0, 0, 0, 0);
-  const todayLeft =
-    todayMs >= range.start && todayMs <= range.start + range.span
-      ? ((todayMs - range.start) / range.span) * 100
-      : null;
+  const todayX = todayMs >= range.start && todayMs <= range.end ? x(todayMs) : null;
 
-  const barGeometry = (s: string | null, e: string | null) => {
+  const barGeo = (s: string | null, e: string | null) => {
     const sd = toDate(s)?.getTime();
     let ed = toDate(e)?.getTime();
     if (!sd && !ed) return null;
     const startMs = sd ?? ed!;
-    ed = ed ?? startMs + DAY;
-    const rawLeft = ((startMs - range.start) / range.span) * 100;
-    const left = Math.max(rawLeft, 0);
-    const rawWidth = ((ed - startMs + DAY) / range.span) * 100;
-    const width = Math.max(Math.min(rawWidth, 100 - left), 1.5);
-    return { left: `${left}%`, width: `${width}%` };
+    ed = (ed ?? startMs) + DAY;            // inclusive end day
+    const left = x(startMs);
+    const width = Math.max(x(ed) - left, 6);
+    return { left, width };
   };
-
-  // Vertical week gridlines + today marker, rendered behind the bars
-  const TimelineGrid = () => (
-    <div className="pointer-events-none absolute inset-0">
-      {weekCols.map((_, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 border-l border-[#1E2D47]/40"
-          style={{ left: `${(i / range.weeks) * 100}%` }}
-        />
-      ))}
-      {todayLeft !== null && (
-        <div
-          className="absolute inset-y-0 w-px bg-[#0EA5E9]/60"
-          style={{ left: `${todayLeft}%` }}
-        />
-      )}
-    </div>
-  );
 
   const hasAnyDates = project.workstreams.some(
     (w) => w.start_date || w.end_date || w.tasks.some((t) => t.start_date || t.due_date)
   );
 
+  // gridlines spanning the whole body, drawn once behind every row
+  const weekLines = Array.from({ length: range.weeks + 1 }, (_, i) => i * WEEK_W);
+
   return (
     <Card className="border-[#1E2D47] bg-[#0F1629] p-0 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[#1E2D47] px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2D47] px-5 py-3">
         <h2 className="text-sm font-semibold text-white">Timeline</h2>
-        <span className="text-[11px] text-[#64748B]">Parallel workstreams overlap on the same weeks</span>
+        <div className="flex items-center gap-3 text-[11px] text-[#64748B]">
+          {(["not_started", "in_progress", "blocked", "done"] as PMStatus[]).map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_META[s].dot }} />
+              {STATUS_META[s].label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {!hasAnyDates ? (
@@ -197,44 +223,58 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[720px]">
-            {/* week header */}
+          {/* one shared grid: label column (sticky) + fixed-width track */}
+          <div style={{ width: LABEL_W + range.trackW }}>
+            {/* ---- header: month band + week dates ---- */}
             <div className="flex border-b border-[#1E2D47]">
-              <div className="w-52 shrink-0 px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-[#64748B]">
+              <div
+                className="sticky left-0 z-20 shrink-0 self-stretch border-r border-[#1E2D47] bg-[#0F1629] px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-[#64748B]"
+                style={{ width: LABEL_W }}
+              >
                 Workstream / Task
               </div>
-              <div className="relative flex flex-1">
-                {weekCols.map((d, i) => (
+              <div className="relative" style={{ width: range.trackW, height: 44 }}>
+                {months.map((m, i) => (
                   <div
                     key={i}
-                    className="flex-1 border-l border-[#1E2D47]/60 px-2 py-2 text-[10px] text-[#64748B]"
-                    style={{ minWidth: 56 }}
+                    className="absolute top-0 h-5 truncate border-l border-[#1E2D47]/60 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]"
+                    style={{ left: m.left, width: m.width }}
                   >
-                    {d.toLocaleDateString("en-US", { day: "numeric", month: "short" })}
+                    {m.width > 30 ? m.label : ""}
+                  </div>
+                ))}
+                {Array.from({ length: range.weeks }, (_, i) => (
+                  <div
+                    key={i}
+                    className="absolute bottom-0 h-6 border-l border-[#1E2D47]/40 px-1 pt-1 text-[10px] text-[#64748B]"
+                    style={{ left: i * WEEK_W, width: WEEK_W }}
+                  >
+                    {new Date(range.start + i * 7 * DAY).getDate()}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* rows */}
-            {project.workstreams.map((w) => {
-              const wsBar = barGeometry(w.start_date, w.end_date);
+            {/* ---- body ---- */}
+            {project.workstreams.map((w, wi) => {
+              const wsBar = barGeo(w.start_date, w.end_date);
               return (
-                <div key={w.id}>
-                  {/* workstream row */}
-                  <div className="flex items-center border-b border-[#1E2D47]/40 bg-[#0B1120]/40">
-                    <div className="w-52 shrink-0 px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: w.color }} />
-                        <span className="truncate text-sm font-semibold text-white">{w.name}</span>
-                      </div>
+                <div key={w.id} className={wi % 2 ? "bg-[#0B1120]/30" : ""}>
+                  {/* workstream summary row */}
+                  <div className="flex items-stretch border-b border-[#1E2D47]/50">
+                    <div
+                      className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] bg-inherit px-4"
+                      style={{ width: LABEL_W }}
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: w.color }} />
+                      <span className="truncate text-[13px] font-semibold text-white">{w.name}</span>
                     </div>
-                    <div className="relative h-9 flex-1">
-                      <TimelineGrid />
+                    <div className="relative" style={{ width: range.trackW, height: ROW_H + 4 }}>
+                      <GridBg lines={weekLines} todayX={todayX} />
                       {wsBar && (
                         <div
-                          className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full"
-                          style={{ ...wsBar, backgroundColor: w.color, opacity: 0.85 }}
+                          className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full"
+                          style={{ left: wsBar.left, width: wsBar.width, backgroundColor: w.color, opacity: 0.9 }}
                           title={`${fmt(w.start_date)} → ${fmt(w.end_date)}`}
                         />
                       )}
@@ -242,24 +282,31 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                   </div>
                   {/* task rows */}
                   {w.tasks.map((t) => {
-                    const tBar = barGeometry(t.start_date, t.due_date);
+                    const tBar = barGeo(t.start_date, t.due_date);
+                    const meta = STATUS_META[t.status];
                     return (
-                      <div key={t.id} className="flex items-center border-b border-[#1E2D47]/20">
-                        <div className="w-52 shrink-0 py-2 pl-9 pr-4">
+                      <div key={t.id} className="flex items-stretch border-b border-[#1E2D47]/20">
+                        <div
+                          className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] bg-inherit py-1.5 pl-9 pr-3"
+                          style={{ width: LABEL_W }}
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.dot }} />
                           <span className="truncate text-xs text-[#94A3B8]">{t.title}</span>
                         </div>
-                        <div className="relative h-8 flex-1">
-                          <TimelineGrid />
+                        <div className="relative" style={{ width: range.trackW, height: ROW_H }}>
+                          <GridBg lines={weekLines} todayX={todayX} />
                           {tBar && (
                             <div
-                              className="absolute top-1/2 h-2.5 -translate-y-1/2 overflow-hidden rounded-full bg-[#1E2D47]"
-                              style={tBar}
+                              className="group absolute top-1/2 flex h-4 -translate-y-1/2 items-center overflow-hidden rounded-md bg-[#1E2D47]"
+                              style={{ left: tBar.left, width: tBar.width }}
                               title={`${t.title}: ${fmt(t.start_date)} → ${fmt(t.due_date)} (${t.progress}%)`}
                             >
-                              <div
-                                className="h-full rounded-full"
-                                style={{ width: `${t.progress}%`, backgroundColor: STATUS_META[t.status].dot }}
-                              />
+                              <div className="h-full rounded-md" style={{ width: `${t.progress}%`, backgroundColor: meta.dot }} />
+                              {tBar.width > 46 && (
+                                <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-[10px] font-medium text-white/90">
+                                  {t.progress}%
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
