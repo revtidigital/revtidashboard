@@ -104,10 +104,98 @@ function ProjectDetailContent({ id }: { id: string }) {
         {project.description && <p className="mt-2 max-w-2xl text-sm text-[#64748B]">{project.description}</p>}
       </div>
 
+      <TodayFocus project={project} />
+
       <GanttChart project={project} />
 
       <Workstreams project={project} isAuthorized={isAuthorized} reload={load} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Today focus — what's starting / ending / running right now          */
+/* ------------------------------------------------------------------ */
+type FocusItem = { ws: WorkstreamWithTasks; task: PMTask };
+
+function TodayFocus({ project }: { project: PMProjectDetail }) {
+  const buckets = useMemo(() => {
+    const today = new Date().setHours(0, 0, 0, 0);
+    const startingToday: FocusItem[] = [];
+    const dueToday: FocusItem[] = [];
+    const overdue: FocusItem[] = [];
+    const active: FocusItem[] = [];
+    project.workstreams.forEach((ws) => {
+      ws.tasks.forEach((task) => {
+        const s = toDate(task.start_date)?.getTime() ?? null;
+        const d = toDate(task.due_date)?.getTime() ?? null;
+        const open = task.status !== "done";
+        if (s === today) startingToday.push({ ws, task });
+        if (d === today) dueToday.push({ ws, task });
+        if (open && d !== null && d < today) overdue.push({ ws, task });
+        if (open && s !== null && s < today && (d === null || d >= today) && s !== today)
+          active.push({ ws, task });
+      });
+    });
+    return { startingToday, dueToday, overdue, active };
+  }, [project]);
+
+  const cols: { key: string; label: string; tint: string; items: FocusItem[] }[] = [
+    { key: "start", label: "Starting today", tint: "#0EA5E9", items: buckets.startingToday },
+    { key: "due", label: "Due today", tint: "#F59E0B", items: buckets.dueToday },
+    { key: "overdue", label: "Overdue", tint: "#EF4444", items: buckets.overdue },
+    { key: "active", label: "In progress now", tint: "#10B981", items: buckets.active },
+  ];
+
+  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
+  const total = cols.reduce((n, c) => n + c.items.length, 0);
+
+  return (
+    <Card className="border-[#1E2D47] bg-[#0F1629] p-0 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2D47] px-5 py-3">
+        <h2 className="text-sm font-semibold text-white">Today&apos;s focus</h2>
+        <span className="text-[11px] text-[#64748B]">{todayLabel}</span>
+      </div>
+      {total === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-[#64748B]">
+          Nothing starts, ends or runs today across any workstream. 🎉
+        </div>
+      ) : (
+        <div className="grid gap-px bg-[#1E2D47]/40 sm:grid-cols-2 xl:grid-cols-4">
+          {cols.map((c) => (
+            <div key={c.key} className="bg-[#0F1629] p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.tint }} />
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">{c.label}</span>
+                <span className="ml-auto rounded-full bg-[#1E2D47] px-1.5 text-[11px] text-[#94A3B8]">{c.items.length}</span>
+              </div>
+              {c.items.length === 0 ? (
+                <p className="text-[11px] text-[#475569]">—</p>
+              ) : (
+                <ul className="space-y-2">
+                  {c.items.map(({ ws, task }) => (
+                    <li key={task.id} className="rounded-md border border-[#1E2D47]/60 bg-[#0B1120]/50 px-2.5 py-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: ws.color }} />
+                        <span className="truncate text-[11px] text-[#64748B]">{ws.name}</span>
+                      </div>
+                      <p className="mt-1 truncate text-[13px] font-medium text-white">{task.title}</p>
+                      <div className="mt-1 flex items-center gap-2 text-[11px] text-[#94A3B8]">
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_META[task.status].cls}`}>
+                          {STATUS_META[task.status].label}
+                        </span>
+                        {task.assignee && <span>@{task.assignee}</span>}
+                        <span className="ml-auto">{fmt(task.start_date)} → {fmt(task.due_date)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
