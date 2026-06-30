@@ -149,10 +149,8 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
     const min = dates.length ? Math.min(...dates) : fallback;
     let max = dates.length ? Math.max(...dates) : min + 56 * DAY;
     if (max <= min) max = min + 14 * DAY;
-    // snap start back to Monday for clean week columns
+    // start exactly on the earliest date (e.g. 1 Jul) — no week snap
     const snapStart = new Date(min);
-    const dow = (snapStart.getDay() + 6) % 7; // 0 = Monday
-    snapStart.setDate(snapStart.getDate() - dow);
     snapStart.setHours(0, 0, 0, 0);
     const start = snapStart.getTime();
     const weeks = Math.ceil((Math.ceil((max - start) / DAY) + 1) / 7);
@@ -258,13 +256,14 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
             {/* ---- body ---- */}
             {project.workstreams.map((w, wi) => {
               const wsBar = barGeo(w.start_date, w.end_date);
+              const rowBg = wi % 2 ? "#0B1120" : "#0F1629";
               return (
-                <div key={w.id} className={wi % 2 ? "bg-[#0B1120]/30" : ""}>
+                <div key={w.id} style={{ backgroundColor: rowBg }}>
                   {/* workstream summary row */}
                   <div className="flex items-stretch border-b border-[#1E2D47]/50">
                     <div
-                      className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] bg-inherit px-4"
-                      style={{ width: LABEL_W }}
+                      className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] px-4"
+                      style={{ width: LABEL_W, backgroundColor: rowBg }}
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: w.color }} />
                       <span className="truncate text-[13px] font-semibold text-white">{w.name}</span>
@@ -287,8 +286,8 @@ function GanttChart({ project }: { project: PMProjectDetail }) {
                     return (
                       <div key={t.id} className="flex items-stretch border-b border-[#1E2D47]/20">
                         <div
-                          className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] bg-inherit py-1.5 pl-9 pr-3"
-                          style={{ width: LABEL_W }}
+                          className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-[#1E2D47] py-1.5 pl-9 pr-3"
+                          style={{ width: LABEL_W, backgroundColor: rowBg }}
                         >
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.dot }} />
                           <span className="truncate text-xs text-[#94A3B8]">{t.title}</span>
