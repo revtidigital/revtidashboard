@@ -11,10 +11,13 @@ import {
   ArrowRight,
   X,
   Layers,
+  Archive,
+  ArchiveRestore,
+  ListChecks,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
-import { getWorkspaceService, PMProject } from "@/lib/services/api";
+import { getWorkspaceService, PMProject, PMTaskSummary } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,7 +29,7 @@ const STATUS_META: Record<PMProject["status"], { label: string; cls: string }> =
   active: { label: "Active", cls: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" },
   on_hold: { label: "On Hold", cls: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
   completed: { label: "Completed", cls: "bg-sky-500/15 text-sky-400 border border-sky-500/30" },
-  archived: { label: "Archived", cls: "bg-slate-500/15 text-slate-400 border border-slate-500/30" },
+  archived: { label: "Closed", cls: "bg-slate-500/15 text-slate-400 border border-slate-500/30" },
 };
 
 const formatDate = (d: string | null) =>
@@ -43,8 +46,10 @@ export default function ProjectsPage() {
 function ProjectsContent() {
   const { user } = useUser();
   const [projects, setProjects] = useState<PMProject[]>([]);
+  const [taskSummary, setTaskSummary] = useState<Record<string, PMTaskSummary>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [name, setName] = useState("");
@@ -55,11 +60,17 @@ function ProjectsContent() {
   const [endDate, setEndDate] = useState("");
 
   const isAuthorized = user?.role === "admin" || user?.role === "edit";
+  const activeProjects = projects.filter((p) => p.status !== "archived");
+  const closedProjects = projects.filter((p) => p.status === "archived");
 
   const load = async () => {
     try {
-      const data = await getWorkspaceService().getPMProjects();
+      const [data, summary] = await Promise.all([
+        getWorkspaceService().getPMProjects(),
+        getWorkspaceService().getPMTaskSummary(),
+      ]);
       setProjects(data);
+      setTaskSummary(summary);
     } catch (err) {
       console.error("Failed to load projects:", err);
     } finally {
@@ -112,6 +123,17 @@ function ProjectsContent() {
       await load();
     } catch (err) {
       console.error("Failed to delete project:", err);
+    }
+  };
+
+  const handleToggleClosed = async (p: PMProject) => {
+    if (!isAuthorized) return;
+    try {
+      const nextStatus = p.status === "archived" ? "active" : "archived";
+      await getWorkspaceService().updatePMProject(p.id, { status: nextStatus });
+      await load();
+    } catch (err) {
+      console.error("Failed to update project status:", err);
     }
   };
 
@@ -194,38 +216,113 @@ function ProjectsContent() {
           <p className="mt-1 text-xs text-[#94A3B8]">Create your first project to start building its roadmap.</p>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => {
-            const meta = STATUS_META[p.status];
-            return (
-              <Card key={p.id} className="group relative flex flex-col border-[#1E2D47] bg-[#0F1629] p-5 transition-colors hover:border-[#0EA5E9]/50">
-                <div className="flex items-start justify-between gap-2">
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>{meta.label}</span>
-                  {isAuthorized && (
-                    <button onClick={() => handleDelete(p.id)} className="text-[#475569] opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100" title="Delete project">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {activeProjects.map((p) => (
+              <ProjectCard
+                key={p.id}
+                project={p}
+                summary={taskSummary[p.id]}
+                isAuthorized={isAuthorized}
+                onDelete={handleDelete}
+                onToggleClosed={handleToggleClosed}
+              />
+            ))}
+          </div>
+
+          {closedProjects.length > 0 && (
+            <div className="space-y-3 pt-4">
+              <button
+                onClick={() => setShowClosed((v) => !v)}
+                className="flex items-center gap-2 text-sm font-semibold text-[#94A3B8] hover:text-white"
+              >
+                <Archive className="h-4 w-4" />
+                Closed Projects ({closedProjects.length})
+                <span className="text-xs">{showClosed ? "▲" : "▼"}</span>
+              </button>
+              {showClosed && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {closedProjects.map((p) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      summary={taskSummary[p.id]}
+                      isAuthorized={isAuthorized}
+                      onDelete={handleDelete}
+                      onToggleClosed={handleToggleClosed}
+                    />
+                  ))}
                 </div>
-                <Link href={`/projects/${p.id}`} className="mt-3 flex-1">
-                  <h3 className="text-lg font-semibold text-white group-hover:text-[#0EA5E9]">{p.name}</h3>
-                  {p.client && (
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#94A3B8]"><Users className="h-3.5 w-3.5" />{p.client}</p>
-                  )}
-                  {p.description && <p className="mt-2 line-clamp-2 text-sm text-[#64748B]">{p.description}</p>}
-                  <p className="mt-3 flex items-center gap-1.5 text-xs text-[#64748B]">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {formatDate(p.start_date)} → {formatDate(p.end_date)}
-                  </p>
-                </Link>
-                <Link href={`/projects/${p.id}`} className="mt-4 flex items-center gap-1 text-xs font-medium text-[#0EA5E9] hover:gap-2 transition-all">
-                  Open roadmap <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </Card>
-            );
-          })}
-        </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+function ProjectCard({
+  project: p,
+  summary,
+  isAuthorized,
+  onDelete,
+  onToggleClosed,
+}: {
+  project: PMProject;
+  summary?: PMTaskSummary;
+  isAuthorized: boolean;
+  onDelete: (id: string) => void;
+  onToggleClosed: (p: PMProject) => void;
+}) {
+  const meta = STATUS_META[p.status];
+  const isClosed = p.status === "archived";
+  const pct = summary && summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : null;
+
+  return (
+    <Card className={`group relative flex flex-col border-[#1E2D47] bg-[#0F1629] p-5 transition-colors hover:border-[#0EA5E9]/50 ${isClosed ? "opacity-70" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>{meta.label}</span>
+        {isAuthorized && (
+          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => onToggleClosed(p)}
+              className="text-[#475569] hover:text-[#0EA5E9]"
+              title={isClosed ? "Reopen project" : "Mark as closed"}
+            >
+              {isClosed ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            </button>
+            <button onClick={() => onDelete(p.id)} className="text-[#475569] hover:text-red-400" title="Delete project">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+      <Link href={`/projects/${p.id}`} className="mt-3 flex-1">
+        <h3 className="text-lg font-semibold text-white group-hover:text-[#0EA5E9]">{p.name}</h3>
+        {p.client && (
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#94A3B8]"><Users className="h-3.5 w-3.5" />{p.client}</p>
+        )}
+        {p.description && <p className="mt-2 line-clamp-2 text-sm text-[#64748B]">{p.description}</p>}
+        {summary && summary.total > 0 && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] text-[#94A3B8]">
+              <span className="flex items-center gap-1.5"><ListChecks className="h-3.5 w-3.5" />{summary.done}/{summary.total} tasks done</span>
+              {summary.overdue > 0 && <span className="font-medium text-red-400">{summary.overdue} overdue</span>}
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1E2D47]">
+              <div className="h-full rounded-full bg-[#0EA5E9]" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-[#64748B]">
+          <Calendar className="h-3.5 w-3.5" />
+          {formatDate(p.start_date)} → {formatDate(p.end_date)}
+        </p>
+      </Link>
+      <Link href={`/projects/${p.id}`} className="mt-4 flex items-center gap-1 text-xs font-medium text-[#0EA5E9] hover:gap-2 transition-all">
+        Open roadmap <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+    </Card>
   );
 }

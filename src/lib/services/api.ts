@@ -240,6 +240,13 @@ export interface PMProjectDetail extends PMProject {
   workstreams: WorkstreamWithTasks[];
 }
 
+export interface PMTaskSummary {
+  total: number;
+  done: number;
+  in_progress: number;
+  overdue: number;
+}
+
 export interface IWorkspaceService {
   // Authentication / User Persona management
   getCurrentUser(): Promise<User>;
@@ -312,6 +319,7 @@ export interface IWorkspaceService {
 
   // Project Management
   getPMProjects(): Promise<PMProject[]>;
+  getPMTaskSummary(): Promise<Record<string, PMTaskSummary>>;
   getPMProjectDetail(id: string): Promise<PMProjectDetail | null>;
   createPMProject(data: Omit<PMProject, "id" | "created_by" | "created_at" | "updated_at">): Promise<PMProject>;
   updatePMProject(id: string, data: Partial<PMProject>): Promise<PMProject>;

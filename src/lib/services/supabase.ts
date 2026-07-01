@@ -19,6 +19,7 @@ import {
   ProjectCategory,
   PMProject,
   PMProjectDetail,
+  PMTaskSummary,
   Workstream,
   PMTask,
   WorkstreamWithTasks,
@@ -906,6 +907,24 @@ export class SupabaseService implements IWorkspaceService {
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data || [];
+  }
+
+  async getPMTaskSummary(): Promise<Record<string, PMTaskSummary>> {
+    const { data, error } = await this.client
+      .from("pm_tasks")
+      .select("project_id, status, due_date");
+    if (error) throw error;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const summary: Record<string, PMTaskSummary> = {};
+    for (const t of data || []) {
+      const s = summary[t.project_id] ?? (summary[t.project_id] = { total: 0, done: 0, in_progress: 0, overdue: 0 });
+      s.total += 1;
+      if (t.status === "done") s.done += 1;
+      if (t.status === "in_progress") s.in_progress += 1;
+      if (t.status !== "done" && t.due_date && t.due_date < today) s.overdue += 1;
+    }
+    return summary;
   }
 
   async getPMProjectDetail(id: string): Promise<PMProjectDetail | null> {

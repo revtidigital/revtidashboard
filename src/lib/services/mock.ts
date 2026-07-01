@@ -19,6 +19,7 @@ import {
   ProjectCategory,
   PMProject,
   PMProjectDetail,
+  PMTaskSummary,
   Workstream,
   PMTask,
 } from "./api";
@@ -1057,6 +1058,19 @@ export class MockService implements IWorkspaceService {
 
   async getPMProjects(): Promise<PMProject[]> {
     return this.getPMProjectsRaw().sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async getPMTaskSummary(): Promise<Record<string, PMTaskSummary>> {
+    const today = new Date().toISOString().slice(0, 10);
+    const summary: Record<string, PMTaskSummary> = {};
+    for (const t of this.getPMTasksRaw()) {
+      const s = summary[t.project_id] ?? (summary[t.project_id] = { total: 0, done: 0, in_progress: 0, overdue: 0 });
+      s.total += 1;
+      if (t.status === "done") s.done += 1;
+      if (t.status === "in_progress") s.in_progress += 1;
+      if (t.status !== "done" && t.due_date && t.due_date < today) s.overdue += 1;
+    }
+    return summary;
   }
 
   async getPMProjectDetail(id: string): Promise<PMProjectDetail | null> {
