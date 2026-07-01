@@ -460,6 +460,7 @@ CREATE TABLE pm_tasks (
     start_date DATE,
     due_date DATE,
     progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+    time_taken_minutes INTEGER CHECK (time_taken_minutes IS NULL OR time_taken_minutes >= 0),
     sequence INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

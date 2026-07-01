@@ -188,7 +188,7 @@ function DeliverablesList({
   // add-task form
   const ws = project.workstreams[0];
   const [showForm, setShowForm] = useState(false);
-  const [nt, setNt] = useState({ title: "", assignee: "", start: "", due: "" });
+  const [nt, setNt] = useState({ title: "", assignee: "", start: "", due: "", minutes: "" });
   const [saving, setSaving] = useState(false);
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,9 +219,10 @@ function DeliverablesList({
         start_date: nt.start || null,
         due_date: nt.due || null,
         progress: 0,
+        time_taken_minutes: nt.minutes.trim() ? Number(nt.minutes) : null,
         sequence: ws?.tasks.length ?? 0,
       });
-      setNt({ title: "", assignee: "", start: "", due: "" });
+      setNt({ title: "", assignee: "", start: "", due: "", minutes: "" });
       setShowForm(false);
       await reload();
     } catch (err) {
@@ -274,6 +275,10 @@ function DeliverablesList({
             <Label className="text-[11px] text-[#64748B]">Due</Label>
             <Input type="date" value={nt.due} onChange={(e) => setNt({ ...nt, due: e.target.value })} className="h-8 w-[140px] text-xs" />
           </div>
+          <div>
+            <Label className="text-[11px] text-[#64748B]">Time (min)</Label>
+            <Input type="number" min={0} value={nt.minutes} onChange={(e) => setNt({ ...nt, minutes: e.target.value })} placeholder="e.g. 30" className="h-8 w-[90px] text-xs" />
+          </div>
           <Button type="submit" size="sm" disabled={saving} className="h-8 text-xs">{saving ? "Adding…" : "Add"}</Button>
         </form>
       )}
@@ -282,13 +287,14 @@ function DeliverablesList({
         <div className="px-5 py-10 text-center text-sm text-[#64748B]">No tasks yet.</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
+          <table className="w-full min-w-[860px] text-left">
             <thead>
               <tr className="border-b border-[#1E2D47] text-[11px] uppercase tracking-wider text-[#64748B]">
                 <th className="px-5 py-2 font-medium">Task</th>
                 <th className="px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2 font-medium">Assignee</th>
                 <th className="px-3 py-2 font-medium">Timeline</th>
+                <th className="px-3 py-2 font-medium">Time (min)</th>
                 <th className="px-3 py-2 font-medium">Due</th>
               </tr>
             </thead>
@@ -340,6 +346,24 @@ function DeliverablesList({
                       </div>
                     ) : (
                       <span className="text-xs text-[#94A3B8]">{fmt(t.start_date)} → {fmt(t.due_date)}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {isAuthorized ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        defaultValue={t.time_taken_minutes ?? ""}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const val = raw ? Number(raw) : null;
+                          if (val !== (t.time_taken_minutes ?? null)) update(t, { time_taken_minutes: val });
+                        }}
+                        placeholder="—"
+                        className="h-7 w-[80px] text-xs"
+                      />
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">{t.time_taken_minutes != null ? `${t.time_taken_minutes}m` : "—"}</span>
                     )}
                   </td>
                   <td className={`whitespace-nowrap px-3 py-2.5 text-xs ${dueTone(t.due_date, t.status)}`}>
