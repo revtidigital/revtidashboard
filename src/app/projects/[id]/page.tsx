@@ -446,13 +446,13 @@ function TodayFocus({ project }: { project: PMProjectDetail }) {
                         <span className="truncate text-[11px] text-[#64748B]">{ws.name}</span>
                       </div>
                       <p className="mt-1 truncate text-[13px] font-medium text-white">{task.title}</p>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-[#94A3B8]">
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_META[task.status].cls}`}>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#94A3B8]">
+                        <span className={`shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_META[task.status].cls}`}>
                           {STATUS_META[task.status].label}
                         </span>
-                        {task.assignee && <span>@{task.assignee}</span>}
-                        <span className="ml-auto">{fmt(task.start_date)} → {fmt(task.due_date)}</span>
+                        {task.assignee && <span className="truncate">@{task.assignee}</span>}
                       </div>
+                      <p className="mt-1 whitespace-nowrap text-[11px] text-[#64748B]">{fmt(task.start_date)} → {fmt(task.due_date)}</p>
                     </li>
                   ))}
                 </ul>
