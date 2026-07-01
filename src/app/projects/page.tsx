@@ -14,6 +14,7 @@ import {
   Archive,
   ArchiveRestore,
   ListChecks,
+  Activity,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -62,6 +63,22 @@ function ProjectsContent() {
   const isAuthorized = user?.role === "admin" || user?.role === "edit";
   const activeProjects = projects.filter((p) => p.status !== "archived");
   const closedProjects = projects.filter((p) => p.status === "archived");
+
+  // Aggregate "what's happening now" across all active projects
+  const totals = activeProjects.reduce(
+    (acc, p) => {
+      const s = taskSummary[p.id];
+      if (s) {
+        acc.inProgress += s.in_progress;
+        acc.overdue += s.overdue;
+      }
+      return acc;
+    },
+    { inProgress: 0, overdue: 0 }
+  );
+  const busyProjects = activeProjects
+    .map((p) => ({ project: p, summary: taskSummary[p.id] }))
+    .filter((x) => x.summary && x.summary.active_titles.length > 0);
 
   const load = async () => {
     try {
@@ -157,6 +174,63 @@ function ProjectsContent() {
           </Button>
         )}
       </div>
+
+      {/* What's happening now — overview across active projects */}
+      {!isLoading && activeProjects.length > 0 && (
+        <Card className="border-[#1E2D47] bg-[#0F1629] p-5">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Activity className="h-4 w-4 text-[#0EA5E9]" />
+              What&apos;s happening now
+            </h2>
+            <span className="text-xs text-[#94A3B8]">
+              <span className="font-semibold text-white">{activeProjects.length}</span> active projects
+            </span>
+            <span className="text-xs text-[#94A3B8]">
+              <span className="font-semibold text-emerald-400">{totals.inProgress}</span> tasks in progress
+            </span>
+            {totals.overdue > 0 && (
+              <span className="text-xs text-[#94A3B8]">
+                <span className="font-semibold text-red-400">{totals.overdue}</span> overdue
+              </span>
+            )}
+          </div>
+
+          {busyProjects.length === 0 ? (
+            <p className="mt-3 text-xs text-[#64748B]">No tasks in progress right now — sab projects idle hain.</p>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {busyProjects.map(({ project, summary }) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="rounded-lg border border-[#1E2D47] bg-[#0B1120] p-3 transition-colors hover:border-[#0EA5E9]/50"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium text-white">{project.name}</span>
+                    {summary!.overdue > 0 && (
+                      <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                        {summary!.overdue} overdue
+                      </span>
+                    )}
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {summary!.active_titles.slice(0, 3).map((title, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-[#94A3B8]">
+                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#0EA5E9]" />
+                        <span className="truncate">{title}</span>
+                      </li>
+                    ))}
+                    {summary!.active_titles.length > 3 && (
+                      <li className="pl-2.5 text-[11px] text-[#64748B]">+{summary!.active_titles.length - 3} more</li>
+                    )}
+                  </ul>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Create form */}
       {showForm && isAuthorized && (

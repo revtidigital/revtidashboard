@@ -1064,11 +1064,13 @@ export class MockService implements IWorkspaceService {
     const today = new Date().toISOString().slice(0, 10);
     const summary: Record<string, PMTaskSummary> = {};
     for (const t of this.getPMTasksRaw()) {
-      const s = summary[t.project_id] ?? (summary[t.project_id] = { total: 0, done: 0, in_progress: 0, overdue: 0 });
+      const s = summary[t.project_id] ?? (summary[t.project_id] = { total: 0, done: 0, in_progress: 0, overdue: 0, active_titles: [] });
       s.total += 1;
       if (t.status === "done") s.done += 1;
       if (t.status === "in_progress") s.in_progress += 1;
-      if (t.status !== "done" && t.due_date && t.due_date < today) s.overdue += 1;
+      const isOverdue = t.status !== "done" && !!t.due_date && t.due_date < today;
+      if (isOverdue) s.overdue += 1;
+      if (t.status === "in_progress" || isOverdue) s.active_titles.push(t.title);
     }
     return summary;
   }

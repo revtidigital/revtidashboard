@@ -245,6 +245,7 @@ export interface PMTaskSummary {
   done: number;
   in_progress: number;
   overdue: number;
+  active_titles: string[]; // titles of in-progress / overdue tasks, for the "what's happening" overview
 }
 
 export interface IWorkspaceService {
