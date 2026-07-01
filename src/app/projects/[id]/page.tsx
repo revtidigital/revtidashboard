@@ -438,7 +438,7 @@ function TodayFocus({ project }: { project: PMProjectDetail }) {
               {c.items.length === 0 ? (
                 <p className="text-[11px] text-[#475569]">—</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="max-h-[300px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
                   {c.items.map(({ ws, task }) => (
                     <li key={task.id} className="rounded-md border border-[#1E2D47]/60 bg-[#0B1120]/50 px-2.5 py-2">
                       <div className="flex items-center gap-1.5">
