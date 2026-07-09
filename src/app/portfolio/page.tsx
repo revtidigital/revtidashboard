@@ -74,6 +74,7 @@ function PortfolioContent() {
   const searchParams = useSearchParams();
   const { user } = useUser();
   const isAuthorized = user?.role === "admin" || user?.role === "edit";
+  const frontendUrl = "https://revti-frontend-dashboard.vercel.app";
 
   // Data State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -196,7 +197,7 @@ function PortfolioContent() {
             Portfolio Projects
           </h1>
           <p className="mt-2 text-sm text-[#94A3B8]">
-            Manage and organize portfolio project case studies for the dashboard.
+            Manage portfolio case studies shown on the Revti frontend. Updates here feed the live site.
           </p>
         </div>
         {isAuthorized && (
@@ -335,9 +336,9 @@ function PortfolioContent() {
                   <TableCell className="text-right pr-6 py-4">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => setViewProject(project)}
+                        onClick={() => window.open(`${frontendUrl}/?project=${project.id}`, "_blank", "noopener,noreferrer")}
                         className="p-1.5 rounded hover:bg-[#1E2D47] text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
-                        title="Preview Project"
+                        title="View on Revti Frontend"
                       >
                         <Compass className="h-4 w-4" />
                       </button>
