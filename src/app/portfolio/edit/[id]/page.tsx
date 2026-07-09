@@ -7,11 +7,9 @@ import {
   Compass,
   Save,
   ArrowLeft,
-  PlusCircle,
   Trash2,
   TrendingUp,
   User,
-  Quote,
   Upload,
   Video,
 } from "lucide-react";
@@ -23,6 +21,7 @@ import {
   ProjectStat,
   ProjectFeedback,
   ProjectCategory,
+  ProjectProcessStep,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -92,6 +91,15 @@ function EditProjectContent({ id }: { id: string }) {
   const [feedbacks, setFeedbacks] = useState<ProjectFeedback[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("published");
   const [sequence, setSequence] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [sprint, setSprint] = useState("");
+  const [clientLogo, setClientLogo] = useState("");
+  const [overviewTitle, setOverviewTitle] = useState("");
+  const [challenge, setChallenge] = useState("");
+  const [approach, setApproach] = useState("");
+  const [impact, setImpact] = useState("");
+  const [compliance, setCompliance] = useState("");
+  const [processSteps, setProcessSteps] = useState<ProjectProcessStep[]>([]);
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [newCatName, setNewCatName] = useState("");
@@ -161,6 +169,15 @@ function EditProjectContent({ id }: { id: string }) {
           setSequence(found.sequence !== undefined ? String(found.sequence) : "");
           setVideoType(found.video_type || "none");
           setVideoUrl(found.video_url || "");
+          setIndustry(found.industry || "");
+          setSprint(found.sprint || "");
+          setClientLogo(found.client_logo || "");
+          setOverviewTitle(found.overview_title || "");
+          setChallenge(found.challenge || "");
+          setApproach(found.approach || "");
+          setImpact(found.impact || "");
+          setCompliance(found.compliance || "");
+          setProcessSteps(found.process || []);
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -246,7 +263,7 @@ function EditProjectContent({ id }: { id: string }) {
   };
 
   const handleAddStat = () => {
-    setStats([...stats, { num: "", label: "" }]);
+    setStats([...stats, { num: "", label: "", before: "", after: "" }]);
   };
 
   const handleUpdateStat = (index: number, key: keyof ProjectStat, value: string) => {
@@ -257,6 +274,20 @@ function EditProjectContent({ id }: { id: string }) {
 
   const handleRemoveStat = (index: number) => {
     setStats(stats.filter((_, i) => i !== index));
+  };
+
+  const handleAddProcessStep = () => {
+    setProcessSteps([...processSteps, { phase: "", title: "", description: "" }]);
+  };
+
+  const handleUpdateProcessStep = (index: number, key: keyof ProjectProcessStep, value: string) => {
+    const nextSteps = [...processSteps];
+    nextSteps[index][key] = value;
+    setProcessSteps(nextSteps);
+  };
+
+  const handleRemoveProcessStep = (index: number) => {
+    setProcessSteps(processSteps.filter((_, i) => i !== index));
   };
 
   const handleAddFeedback = () => {
@@ -301,7 +332,22 @@ function EditProjectContent({ id }: { id: string }) {
 
     const parsedGallery = galleryUrls.filter(Boolean);
 
-    const sanitizedStats = stats.filter((s) => s.num.trim() || s.label.trim());
+    const sanitizedStats = stats
+      .map((s) => ({
+        num: s.num.trim(),
+        label: s.label.trim(),
+        before: s.before?.trim(),
+        after: s.after?.trim(),
+      }))
+      .filter((s) => s.num || s.label || s.before || s.after);
+    const sanitizedProcess = processSteps
+      .map((step) => ({
+        phase: step.phase.trim(),
+        title: step.title.trim(),
+        description: step.description.trim(),
+        icon: step.icon?.trim(),
+      }))
+      .filter((step) => step.phase || step.title || step.description);
     const sanitizedFeedbacks = feedbacks.filter((f) => f.name.trim() || f.text.trim());
 
     // Sequence parsing
@@ -335,6 +381,15 @@ function EditProjectContent({ id }: { id: string }) {
       sequence: parsedSequence,
       video_type: videoType,
       video_url: videoUrl,
+      industry: industry.trim(),
+      sprint: sprint.trim(),
+      client_logo: clientLogo.trim(),
+      overview_title: overviewTitle.trim(),
+      challenge: challenge.trim(),
+      approach: approach.trim(),
+      impact: impact.trim(),
+      compliance: compliance.trim(),
+      process: sanitizedProcess,
     };
 
     try {
@@ -348,9 +403,9 @@ function EditProjectContent({ id }: { id: string }) {
       }
       router.push("/portfolio");
       router.refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save project:", err);
-      setErrorMsg(err.message || "An error occurred while saving the project.");
+      setErrorMsg(err instanceof Error ? err.message : "An error occurred while saving the project.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setIsSaving(false);
@@ -477,6 +532,36 @@ function EditProjectContent({ id }: { id: string }) {
                   onChange={(e) => setClient(e.target.value)}
                   className="border-[#1E2D47] bg-[#07090F] text-white"
                   required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Industry</Label>
+                <Input
+                  placeholder="e.g. Healthcare / MedTech"
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Sprint / Timeline</Label>
+                <Input
+                  placeholder="e.g. 18-Month Agile"
+                  value={sprint}
+                  onChange={(e) => setSprint(e.target.value)}
+                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs font-semibold text-slate-300">Client Logo URL</Label>
+                <Input
+                  placeholder="Optional logo URL for homepage trusted brands section"
+                  value={clientLogo}
+                  onChange={(e) => setClientLogo(e.target.value)}
+                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono"
                 />
               </div>
 
@@ -614,6 +699,69 @@ function EditProjectContent({ id }: { id: string }) {
                   rows={6}
                   required
                 />
+              </div>
+            </div>
+          </Card>
+
+          {/* Section 3: Frontend Project Page Fields */}
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
+              Frontend Project Page Fields
+            </h2>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Overview Heading</Label>
+                <Input
+                  placeholder="e.g. Revolutionising diagnostics with AI intelligence"
+                  value={overviewTitle}
+                  onChange={(e) => setOverviewTitle(e.target.value)}
+                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">The Challenge</Label>
+                  <Textarea value={challenge} onChange={(e) => setChallenge(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">Our Approach</Label>
+                  <Textarea value={approach} onChange={(e) => setApproach(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">The Impact</Label>
+                  <Textarea value={impact} onChange={(e) => setImpact(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">Compliance / Note</Label>
+                  <Textarea value={compliance} onChange={(e) => setCompliance(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
+                </div>
+              </div>
+
+              <div className="space-y-3 border-t border-[#1E2D47] pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-300">From Discovery to Deployment Steps</Label>
+                  <Button type="button" onClick={handleAddProcessStep} size="sm" className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-[10px] h-7 cursor-pointer">
+                    Add Step
+                  </Button>
+                </div>
+                {processSteps.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">No process steps added. The frontend can hide this section.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {processSteps.map((step, index) => (
+                      <div key={index} className="space-y-2 bg-[#07090F]/50 p-3 rounded border border-[#1E2D47]/40">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <Input placeholder="Phase (e.g. Phase 01 · Weeks 1–4)" value={step.phase} onChange={(e) => handleUpdateProcessStep(index, "phase", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px]" />
+                          <Input placeholder="Title" value={step.title} onChange={(e) => handleUpdateProcessStep(index, "title", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px]" />
+                        </div>
+                        <Textarea placeholder="Description" value={step.description} onChange={(e) => handleUpdateProcessStep(index, "description", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] min-h-[80px]" />
+                        <button type="button" onClick={() => handleRemoveProcessStep(index)} className="text-xs text-red-400 hover:text-red-300 cursor-pointer">Remove step</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -914,18 +1062,10 @@ function EditProjectContent({ id }: { id: string }) {
                 {stats.map((stat, index) => (
                   <div key={index} className="flex items-center gap-2 bg-[#07090F]/50 p-2 rounded border border-[#1E2D47]/40">
                     <div className="grid grid-cols-2 gap-2 flex-1">
-                      <Input
-                        placeholder="Value (e.g. 3.8x)"
-                        value={stat.num}
-                        onChange={(e) => handleUpdateStat(index, "num", e.target.value)}
-                        className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8 font-mono"
-                      />
-                      <Input
-                        placeholder="Label"
-                        value={stat.label}
-                        onChange={(e) => handleUpdateStat(index, "label", e.target.value)}
-                        className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8"
-                      />
+                      <Input placeholder="Value (e.g. 3.8x)" value={stat.num} onChange={(e) => handleUpdateStat(index, "num", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8 font-mono" />
+                      <Input placeholder="Label" value={stat.label} onChange={(e) => handleUpdateStat(index, "label", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8" />
+                      <Input placeholder="Before (optional)" value={stat.before || ""} onChange={(e) => handleUpdateStat(index, "before", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8" />
+                      <Input placeholder="After (optional)" value={stat.after || ""} onChange={(e) => handleUpdateStat(index, "after", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] h-8" />
                     </div>
                     <button
                       type="button"
