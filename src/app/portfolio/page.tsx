@@ -6,7 +6,6 @@ import {
   Compass,
   Plus,
   Search,
-  Eye,
   Edit,
   Trash2,
   X,
@@ -341,7 +340,7 @@ function PortfolioContent() {
                         className="p-1.5 rounded hover:bg-[#1E2D47] text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
                         title="View on Revti Frontend"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Compass className="h-4 w-4" />
                       </button>
                       {isAuthorized && (
                         <>
