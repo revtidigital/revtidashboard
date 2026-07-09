@@ -147,6 +147,15 @@ export interface TaskReminder {
 export interface ProjectStat {
   num: string;
   label: string;
+  before?: string;
+  after?: string;
+}
+
+export interface ProjectProcessStep {
+  phase: string;
+  title: string;
+  description: string;
+  icon?: string;
 }
 
 export interface ProjectFeedback {
@@ -182,6 +191,15 @@ export interface Project {
   sequence?: number;
   video_type?: string;
   video_url?: string;
+  industry?: string;
+  sprint?: string;
+  client_logo?: string;
+  overview_title?: string;
+  challenge?: string;
+  approach?: string;
+  impact?: string;
+  compliance?: string;
+  process?: ProjectProcessStep[];
 }
 
 // -------------------------------------------------------------

@@ -391,8 +391,35 @@ CREATE TABLE IF NOT EXISTS projects (
     gallery TEXT[] NOT NULL DEFAULT '{}',
     stats JSONB NOT NULL DEFAULT '[]',
     feedback JSONB NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published')),
+    sequence INTEGER,
+    video_type TEXT,
+    video_url TEXT,
+    industry TEXT,
+    sprint TEXT,
+    client_logo TEXT,
+    overview_title TEXT,
+    challenge TEXT,
+    approach TEXT,
+    impact TEXT,
+    compliance TEXT,
+    process JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published'));
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS sequence INTEGER;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS video_type TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS industry TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS sprint TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_logo TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS overview_title TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS challenge TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS approach TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS impact TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS compliance TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS process JSONB NOT NULL DEFAULT '[]';
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
@@ -400,6 +427,11 @@ CREATE POLICY "Enable read projects for all authenticated"
     ON projects FOR SELECT
     TO authenticated
     USING (true);
+
+CREATE POLICY "Enable public read for published projects"
+    ON projects FOR SELECT
+    TO anon
+    USING (status = 'published');
 
 CREATE POLICY "Enable write projects for admin users only"
     ON projects FOR ALL

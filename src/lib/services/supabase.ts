@@ -24,7 +24,7 @@ import {
   PMTask,
   WorkstreamWithTasks,
 } from "./api";
-import { MOCK_PROJECTS, MockService } from "./mock";
+import { MockService } from "./mock";
 
 export class SupabaseService implements IWorkspaceService {
   private client = supabase!;
@@ -679,13 +679,13 @@ export class SupabaseService implements IWorkspaceService {
         .order("sequence", { ascending: true, nullsFirst: false })
         .order("title", { ascending: true });
       if (error) {
-        console.warn("Supabase 'projects' table query failed, falling back to mock projects:", error.message);
-        return MOCK_PROJECTS;
+        console.warn("Supabase 'projects' table query failed; returning an empty portfolio list:", error.message);
+        return [];
       }
-      return data && data.length > 0 ? (data as Project[]) : MOCK_PROJECTS;
+      return (data || []) as Project[];
     } catch (e) {
-      console.warn("Error querying projects from Supabase, falling back to mock projects:", e);
-      return MOCK_PROJECTS;
+      console.warn("Error querying projects from Supabase; returning an empty portfolio list:", e);
+      return [];
     }
   }
 
@@ -718,7 +718,7 @@ export class SupabaseService implements IWorkspaceService {
         const mockService = new MockService();
         return await mockService.createProject(data);
       }
-      this.triggerRevalidation();
+      this.triggerFrontendSync();
       return newProject as Project;
     } catch (e) {
       console.warn("Error inserting project in Supabase, falling back to mock create:", e);
@@ -727,22 +727,24 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
-  async triggerRevalidation() {
-    const revalidateUrl = process.env.LANDING_PAGE_REVALIDATE_URL;
+  private triggerFrontendSync() {
+    const configuredUrl = process.env.FRONTEND_REVALIDATE_URL;
     const revalidateSecret = process.env.REVALIDATE_SECRET;
-    
-    if (revalidateUrl && revalidateSecret) {
-      try {
-        const url = new URL(revalidateUrl);
+    const endpoint = configuredUrl || "https://revti-frontend-dashboard.vercel.app/api/revalidate";
+
+    try {
+      const url = new URL(endpoint);
+      url.searchParams.set("tag", "projects");
+
+      if (revalidateSecret) {
         url.searchParams.set("secret", revalidateSecret);
-        url.searchParams.set("tag", "projects");
-        
-        fetch(url.toString(), { method: "GET" }).catch(err => {
-          console.error("Failed to trigger landing page revalidation webhook:", err);
-        });
-      } catch (err) {
-        console.error("Invalid revalidation URL configured:", err);
       }
+
+      fetch(url.toString(), { method: "GET" }).catch((err) => {
+        console.error("Failed to sync portfolio changes with Revti frontend:", err);
+      });
+    } catch (err) {
+      console.error("Invalid frontend revalidation URL configured:", err);
     }
   }
 
@@ -788,7 +790,7 @@ export class SupabaseService implements IWorkspaceService {
         const mockService = new MockService();
         return await mockService.updateProject(id, data);
       }
-      this.triggerRevalidation();
+      this.triggerFrontendSync();
       return updated as Project;
     } catch (e) {
       console.warn("Error updating project in Supabase, falling back to mock update:", e);
@@ -808,7 +810,7 @@ export class SupabaseService implements IWorkspaceService {
         const mockService = new MockService();
         await mockService.deleteProject(id);
       } else {
-        this.triggerRevalidation();
+        this.triggerFrontendSync();
       }
     } catch (e) {
       console.warn("Error deleting project in Supabase, falling back to mock delete:", e);
@@ -851,7 +853,7 @@ export class SupabaseService implements IWorkspaceService {
         const mockService = new MockService();
         return await mockService.createProjectCategory(name);
       }
-      this.triggerRevalidation();
+      this.triggerFrontendSync();
       return data;
     } catch (e) {
       console.warn("Error creating project category in Supabase, falling back to mock:", e);
@@ -872,7 +874,7 @@ export class SupabaseService implements IWorkspaceService {
         const mockService = new MockService();
         await mockService.deleteProjectCategory(id);
       } else {
-        this.triggerRevalidation();
+        this.triggerFrontendSync();
       }
     } catch (e) {
       console.warn("Error deleting project category in Supabase, falling back to mock:", e);
