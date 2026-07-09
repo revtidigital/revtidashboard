@@ -6,7 +6,6 @@ import {
   Compass,
   Plus,
   Search,
-  Eye,
   Edit,
   Trash2,
   X,
@@ -76,8 +75,6 @@ function PortfolioContent() {
   const { user } = useUser();
   const isAuthorized = user?.role === "admin" || user?.role === "edit";
 
-  const landingPageUrl = process.env.NEXT_PUBLIC_LANDING_PAGE_URL || "http://localhost:3000";
-
   // Data State
   const [projects, setProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
@@ -129,9 +126,13 @@ function PortfolioContent() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadProjects();
-    }
+    if (!user) return;
+
+    const timer = window.setTimeout(() => {
+      void loadProjects();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [user]);
 
   // Handle URL Query Params for View/Edit
@@ -147,8 +148,12 @@ function PortfolioContent() {
         if (isEdit && isAuthorized) {
           router.push(`/portfolio/edit/${projectId}`);
         } else {
-          setViewProject(project);
-          router.replace("/portfolio");
+          const timer = window.setTimeout(() => {
+            setViewProject(project);
+            router.replace("/portfolio");
+          }, 0);
+
+          return () => window.clearTimeout(timer);
         }
       }
     }
@@ -191,7 +196,7 @@ function PortfolioContent() {
             Portfolio Projects
           </h1>
           <p className="mt-2 text-sm text-[#94A3B8]">
-            Manage project case studies displayed on the Axiom landing page. Changes trigger revalidation.
+            Manage and organize portfolio project case studies for the dashboard.
           </p>
         </div>
         {isAuthorized && (
@@ -330,11 +335,11 @@ function PortfolioContent() {
                   <TableCell className="text-right pr-6 py-4">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => window.open(`${landingPageUrl}/?project=${project.id}`, '_blank')}
+                        onClick={() => setViewProject(project)}
                         className="p-1.5 rounded hover:bg-[#1E2D47] text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
-                        title="View Live details"
+                        title="Preview Project"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Compass className="h-4 w-4" />
                       </button>
                       {isAuthorized && (
                         <>
@@ -444,7 +449,7 @@ function PortfolioContent() {
                   <div className="md:col-span-2 space-y-4">
                     {viewProject.tagline && (
                       <div className="border-l-2 border-[#818CF8] pl-3 italic text-slate-300 text-sm leading-relaxed whitespace-pre-line">
-                        "{viewProject.tagline}"
+                        &quot;{viewProject.tagline}&quot;
                       </div>
                     )}
                     {viewProject.headline && (
