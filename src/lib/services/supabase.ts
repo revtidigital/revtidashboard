@@ -714,13 +714,14 @@ export class SupabaseService implements IWorkspaceService {
         .select()
         .single();
       if (error) {
-        throw error;
+        throw new Error(error.message || JSON.stringify(error));
       }
       this.triggerFrontendSync();
       return newProject as Project;
     } catch (e) {
       console.error("Error inserting project in Supabase:", e);
-      throw e;
+      if (e instanceof Error) throw e;
+      throw new Error(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : JSON.stringify(e));
     }
   }
 
@@ -783,13 +784,14 @@ export class SupabaseService implements IWorkspaceService {
         .select()
         .single();
       if (error) {
-        throw error;
+        throw new Error(error.message || JSON.stringify(error));
       }
       this.triggerFrontendSync();
       return updated as Project;
     } catch (e) {
       console.error("Error updating project in Supabase:", e);
-      throw e;
+      if (e instanceof Error) throw e;
+      throw new Error(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : JSON.stringify(e));
     }
   }
 

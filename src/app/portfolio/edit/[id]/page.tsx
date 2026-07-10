@@ -411,7 +411,20 @@ function EditProjectContent({ id }: { id: string }) {
       router.refresh();
     } catch (err: unknown) {
       console.error("Failed to save project:", err);
-      const errMsg = err instanceof Error ? err.message : "An error occurred while saving the project.";
+      // Supabase throws PostgrestError which is not instanceof Error but has .message
+      let errMsg = "An error occurred while saving the project.";
+      if (err instanceof Error) {
+        errMsg = err.message;
+      } else if (err && typeof err === "object" && "message" in err) {
+        errMsg = String((err as { message: unknown }).message);
+        // Also surface Supabase's hint/details if present
+        if ("hint" in err && (err as { hint: unknown }).hint) {
+          errMsg += ` — ${String((err as { hint: unknown }).hint)}`;
+        }
+        if ("details" in err && (err as { details: unknown }).details) {
+          errMsg += ` (${String((err as { details: unknown }).details)})`;
+        }
+      }
       setErrorMsg(errMsg);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
