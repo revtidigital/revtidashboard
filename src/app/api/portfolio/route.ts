@@ -142,17 +142,132 @@ export async function GET() {
         Boolean(logo.name) && logos.findIndex((item) => item.name === logo.name) === index
       );
 
+    // 1. Dynamic Hero & Contact Sections
+    let hero = {
+      tagline: "Digital Agency · Est. 2018",
+      heading: "We Make Digital Matter.",
+      heading_highlight: "Digital",
+      sub_heading: "From SEO-driven growth strategies to full-scale enterprise software — Revti Digital builds things that perform.",
+      buttons: [
+        { text: "View Our Work", link: "#portfolio", icon: "fa-arrow-down" },
+        { text: "Start a Project", link: "#contact", icon: "fa-paper-plane" }
+      ]
+    };
+
+    let contact = {
+      heading: "Let's Create Something Together",
+      heading_highlight: "Together",
+      button: { text: "Get In Touch!", link: "mailto:hello@revtidigital.com" }
+    };
+
+    // Import Supabase client dynamically to avoid any initialization side effects
+    const { supabase } = await import("@/lib/supabase");
+
+    if (supabase) {
+      try {
+        const { data: settings } = await supabase.from("site_settings").select("*");
+        if (settings) {
+          const heroSetting = settings.find((s) => s.key === "hero_section");
+          if (heroSetting && heroSetting.value) {
+            hero = { ...hero, ...heroSetting.value };
+          }
+          const contactSetting = settings.find((s) => s.key === "contact_section");
+          if (contactSetting && contactSetting.value) {
+            contact = { ...contact, ...contactSetting.value };
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load site settings from Supabase, using defaults:", err);
+      }
+    }
+
+    // 2. Dynamic Impact Numbers (Supports unlimited stats, adjustable boxes)
+    let numbers = [
+      { value: "10+", label: "Years of Experience", subtext: "Delivering results since 2018" },
+      { value: "200+", label: "Clients Served", subtext: "Across 8+ industries globally" },
+      { value: "50+", label: "Projects Delivered", subtext: "On time, on budget, on point" },
+      { value: "8+", label: "Industries Covered", subtext: "Focused expertise across growth sectors" },
+    ];
+
+    if (supabase) {
+      try {
+        const { data: dbNumbers } = await supabase
+          .from("impact_numbers")
+          .select("*")
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("display_order", { ascending: true });
+        if (dbNumbers && dbNumbers.length > 0) {
+          numbers = dbNumbers.map((n) => ({
+            value: `${n.number}${n.suffix || ""}`,
+            label: n.title,
+            subtext: n.short_desc || ""
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to load impact numbers from Supabase, using defaults:", err);
+      }
+    }
+
+    // 3. Dynamic Client Logos
+    let logos = clientLogos;
+
+    if (supabase) {
+      try {
+        const { data: dbLogos } = await supabase
+          .from("client_logos")
+          .select("*")
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("display_order", { ascending: true });
+        if (dbLogos && dbLogos.length > 0) {
+          logos = dbLogos.map((l) => ({
+            name: l.client_name || "",
+            logo: l.logo_image
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to load client logos from Supabase, using defaults:", err);
+      }
+    }
+
+    // 4. Dynamic Social Media Links
+    let socials = [
+      { platform: "Instagram", link: "#", icon: "fa-instagram" },
+      { platform: "Twitter", link: "#", icon: "fa-twitter" },
+      { platform: "Linkedin", link: "#", icon: "fa-linkedin" }
+    ];
+
+    if (supabase) {
+      try {
+        const { data: dbSocials } = await supabase
+          .from("social_links")
+          .select("*")
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("display_order", { ascending: true });
+        if (dbSocials && dbSocials.length > 0) {
+          socials = dbSocials.map((s) => ({
+            platform: s.platform,
+            link: s.profile_url,
+            icon: s.icon || ""
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to load social links from Supabase, using defaults:", err);
+      }
+    }
+
     return Response.json(
       {
         home: {
-          numbers: [
-            { value: `${publishedProjects.length}+`, label: "Projects Delivered" },
-            { value: `${clientLogos.length}+`, label: "Clients Served" },
-            { value: `${categories.length}+`, label: "Industries Covered" },
-          ].filter((item) => item.value !== "0+"),
+          hero,
+          numbers,
           filters: ["All", ...categories.map((category) => category.name)],
           projects: frontendProjects,
-          logos: clientLogos,
+          logos,
+          contact,
+          socials
         },
         projects: frontendProjects,
         categories,
@@ -165,7 +280,25 @@ export async function GET() {
 
     return Response.json(
       {
-        home: { numbers: [], filters: ["All"], projects: [], logos: [] },
+        home: {
+          hero: {
+            tagline: "Digital Agency · Est. 2018",
+            heading: "We Make Digital Matter.",
+            heading_highlight: "Digital",
+            sub_heading: "From SEO-driven growth strategies to full-scale enterprise software — Revti Digital builds things that perform.",
+            buttons: []
+          },
+          numbers: [],
+          filters: ["All"],
+          projects: [],
+          logos: [],
+          contact: {
+            heading: "Let's Create Something Together",
+            heading_highlight: "Together",
+            button: { text: "Get In Touch!", link: "mailto:hello@revtidigital.com" }
+          },
+          socials: []
+        },
         projects: [],
         categories: [],
         source: "revti-dashboard-portfolio",
