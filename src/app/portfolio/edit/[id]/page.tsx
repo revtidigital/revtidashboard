@@ -396,16 +396,23 @@ function EditProjectContent({ id }: { id: string }) {
       const service = getWorkspaceService();
       if (isNew) {
         await service.createProject(projectData);
-        await service.logActivity("created", null, `created a new portfolio project: ${title}`);
+        // Log activity in background — don't block save on logging failures
+        service.logActivity("created", null, `created a new portfolio project: ${title}`).catch((logErr) => {
+          console.warn("Activity log failed (non-critical):", logErr);
+        });
       } else {
         await service.updateProject(id, projectData);
-        await service.logActivity("updated", null, `updated the portfolio project: ${title}`);
+        // Log activity in background — don't block save on logging failures
+        service.logActivity("updated", null, `updated the portfolio project: ${title}`).catch((logErr) => {
+          console.warn("Activity log failed (non-critical):", logErr);
+        });
       }
       router.push("/portfolio");
       router.refresh();
     } catch (err: unknown) {
       console.error("Failed to save project:", err);
-      setErrorMsg(err instanceof Error ? err.message : "An error occurred while saving the project.");
+      const errMsg = err instanceof Error ? err.message : "An error occurred while saving the project.";
+      setErrorMsg(errMsg);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setIsSaving(false);

@@ -374,7 +374,37 @@ CREATE POLICY "Enable write reminders for editors and admins"
 
 
 -- -------------------------------------------------------------
--- 9. Portfolio Projects Table
+-- 9. Portfolio Project Categories Table
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS project_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    slug TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE project_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable read project_categories for all authenticated"
+    ON project_categories FOR SELECT
+    TO authenticated
+    USING (true);
+
+CREATE POLICY "Enable write project_categories for editors and admins"
+    ON project_categories FOR ALL
+    TO authenticated
+    USING (public.is_editor_or_admin())
+    WITH CHECK (public.is_editor_or_admin());
+
+-- Seed default categories
+INSERT INTO project_categories (name, slug) VALUES
+  ('Web', 'web'),
+  ('Mobile', 'mobile'),
+  ('Brand', 'brand')
+ON CONFLICT (slug) DO NOTHING;
+
+-- -------------------------------------------------------------
+-- 10. Portfolio Projects Table
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -382,12 +412,12 @@ CREATE TABLE IF NOT EXISTS projects (
     year TEXT NOT NULL,
     title TEXT NOT NULL,
     client TEXT NOT NULL,
-    tagline TEXT NOT NULL,
-    headline TEXT NOT NULL,
-    "desc" TEXT NOT NULL,
-    "shortDesc" TEXT NOT NULL,
+    tagline TEXT NOT NULL DEFAULT '',
+    headline TEXT NOT NULL DEFAULT '',
+    "desc" TEXT NOT NULL DEFAULT '',
+    "shortDesc" TEXT NOT NULL DEFAULT '',
     tags TEXT[] NOT NULL DEFAULT '{}',
-    thumb TEXT NOT NULL,
+    thumb TEXT NOT NULL DEFAULT '',
     gallery TEXT[] NOT NULL DEFAULT '{}',
     stats JSONB NOT NULL DEFAULT '[]',
     feedback JSONB NOT NULL DEFAULT '[]',
