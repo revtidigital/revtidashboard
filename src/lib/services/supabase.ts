@@ -714,16 +714,13 @@ export class SupabaseService implements IWorkspaceService {
         .select()
         .single();
       if (error) {
-        console.warn("Supabase 'projects' table insert failed, falling back to mock create:", error.message);
-        const mockService = new MockService();
-        return await mockService.createProject(data);
+        throw error;
       }
       this.triggerFrontendSync();
       return newProject as Project;
     } catch (e) {
-      console.warn("Error inserting project in Supabase, falling back to mock create:", e);
-      const mockService = new MockService();
-      return await mockService.createProject(data);
+      console.error("Error inserting project in Supabase:", e);
+      throw e;
     }
   }
 
@@ -786,16 +783,13 @@ export class SupabaseService implements IWorkspaceService {
         .select()
         .single();
       if (error) {
-        console.warn("Supabase 'projects' table update failed, falling back to mock update:", error.message);
-        const mockService = new MockService();
-        return await mockService.updateProject(id, data);
+        throw error;
       }
       this.triggerFrontendSync();
       return updated as Project;
     } catch (e) {
-      console.warn("Error updating project in Supabase, falling back to mock update:", e);
-      const mockService = new MockService();
-      return await mockService.updateProject(id, data);
+      console.error("Error updating project in Supabase:", e);
+      throw e;
     }
   }
 

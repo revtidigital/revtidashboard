@@ -433,11 +433,11 @@ CREATE POLICY "Enable public read for published projects"
     TO anon
     USING (status = 'published');
 
-CREATE POLICY "Enable write projects for admin users only"
+CREATE POLICY "Enable write projects for editors and admins"
     ON projects FOR ALL
     TO authenticated
-    USING (public.is_admin())
-    WITH CHECK (public.is_admin());
+    USING (public.is_editor_or_admin())
+    WITH CHECK (public.is_editor_or_admin());
 
 -- Seed Projects (Optional)
 -- INSERT INTO projects (cat, year, title, client, tagline, headline, "desc", "shortDesc", tags, thumb, gallery, stats, feedback) VALUES
