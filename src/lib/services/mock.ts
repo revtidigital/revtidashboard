@@ -21,6 +21,11 @@ import {
   PMTaskSummary,
   Workstream,
   PMTask,
+  SiteSetting,
+  JsonRecord,
+  ClientLogo,
+  ImpactNumber,
+  SocialLink,
 } from "./api";
 
 export const MOCK_PROJECT_CATEGORIES: ProjectCategory[] = [
@@ -947,6 +952,62 @@ export class MockService implements IWorkspaceService {
       return URL.createObjectURL(file);
     }
     return `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1400&q=85`;
+  }
+
+  async getSiteSettings(): Promise<SiteSetting[]> {
+    return [];
+  }
+
+  async upsertSiteSetting(key: string, value: JsonRecord): Promise<SiteSetting> {
+    return { key, value, updated_at: new Date().toISOString() };
+  }
+
+  async getClientLogos(): Promise<ClientLogo[]> {
+    return [];
+  }
+
+  async createClientLogo(data: Omit<ClientLogo, "id" | "created_at" | "deleted_at">): Promise<ClientLogo> {
+    return { id: `logo-${Date.now()}`, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async updateClientLogo(id: string, data: Partial<Omit<ClientLogo, "id" | "created_at" | "deleted_at">>): Promise<ClientLogo> {
+    return { id, client_name: null, logo_image: "", display_order: 0, is_active: true, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async deleteClientLogo(id: string): Promise<ClientLogo> {
+    return { id, client_name: null, logo_image: "", display_order: 0, is_active: false, created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
+  }
+
+  async getImpactNumbers(): Promise<ImpactNumber[]> {
+    return [];
+  }
+
+  async createImpactNumber(data: Omit<ImpactNumber, "id" | "created_at" | "deleted_at">): Promise<ImpactNumber> {
+    return { id: `impact-${Date.now()}`, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async updateImpactNumber(id: string, data: Partial<Omit<ImpactNumber, "id" | "created_at" | "deleted_at">>): Promise<ImpactNumber> {
+    return { id, number: 0, suffix: null, title: "", short_desc: null, display_order: 0, is_active: true, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async deleteImpactNumber(id: string): Promise<ImpactNumber> {
+    return { id, number: 0, suffix: null, title: "", short_desc: null, display_order: 0, is_active: false, created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
+  }
+
+  async getSocialLinks(): Promise<SocialLink[]> {
+    return [];
+  }
+
+  async createSocialLink(data: Omit<SocialLink, "id" | "created_at" | "deleted_at">): Promise<SocialLink> {
+    return { id: `social-${Date.now()}`, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async updateSocialLink(id: string, data: Partial<Omit<SocialLink, "id" | "created_at" | "deleted_at">>): Promise<SocialLink> {
+    return { id, platform: "", profile_url: "", icon: null, display_order: 0, is_active: true, created_at: new Date().toISOString(), deleted_at: null, ...data };
+  }
+
+  async deleteSocialLink(id: string): Promise<SocialLink> {
+    return { id, platform: "", profile_url: "", icon: null, display_order: 0, is_active: false, created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
   }
 
   // -------------------------------------------------------------

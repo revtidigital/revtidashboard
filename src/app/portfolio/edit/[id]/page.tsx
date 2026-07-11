@@ -395,20 +395,21 @@ function EditProjectContent({ id }: { id: string }) {
     try {
       const service = getWorkspaceService();
       if (isNew) {
-        await service.createProject(projectData);
+        const savedProject = await service.createProject(projectData);
+        setProject(savedProject);
         // Log activity in background — don't block save on logging failures
         service.logActivity("created", null, `created a new portfolio project: ${title}`).catch((logErr) => {
           console.warn("Activity log failed (non-critical):", logErr);
         });
       } else {
-        await service.updateProject(id, projectData);
+        const savedProject = await service.updateProject(id, projectData);
+        setProject(savedProject);
         // Log activity in background — don't block save on logging failures
         service.logActivity("updated", null, `updated the portfolio project: ${title}`).catch((logErr) => {
           console.warn("Activity log failed (non-critical):", logErr);
         });
       }
-      router.push("/portfolio");
-      router.refresh();
+      router.push(`/portfolio?refresh=${Date.now()}`);
     } catch (err: unknown) {
       console.error("Failed to save project:", err);
       // Supabase throws PostgrestError which is not instanceof Error but has .message

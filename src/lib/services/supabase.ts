@@ -23,11 +23,43 @@ import {
   Workstream,
   PMTask,
   WorkstreamWithTasks,
+  SiteSetting,
+  JsonRecord,
+  ClientLogo,
+  ImpactNumber,
+  SocialLink,
 } from "./api";
-import { MockService } from "./mock";
 
 export class SupabaseService implements IWorkspaceService {
   private client = supabase!;
+
+  private async assertCanMutateContent(): Promise<User> {
+    const currentUser = await this.getCurrentUser();
+    if (currentUser.role !== "admin" && currentUser.role !== "edit") {
+      throw new Error("Unauthorized mutation: admin or edit role is required.");
+    }
+    return currentUser;
+  }
+
+  private isValidUrlLike(value: string): boolean {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
+    if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return true;
+    try {
+      const url = new URL(trimmed);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  private assertValidOptionalUrl(value: string | null | undefined, field: string): void {
+    if (!value?.trim()) return;
+    if (!this.isValidUrlLike(value)) {
+      throw new Error(`Invalid URL for ${field}.`);
+    }
+  }
 
   // -------------------------------------------------------------
   // Auth & Profile
@@ -689,7 +721,24 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
+  private assertProjectPayload(data: Partial<Project>): void {
+    this.assertValidOptionalUrl(data.thumb, "thumb");
+    this.assertValidOptionalUrl(data.video_url, "video_url");
+    this.assertValidOptionalUrl(data.client_logo, "client_logo");
+    for (const [index, url] of (data.gallery || []).entries()) {
+      this.assertValidOptionalUrl(url, `gallery[${index}]`);
+    }
+    if (data.status && data.status !== "draft" && data.status !== "published") {
+      throw new Error("Invalid project field: status must be draft or published.");
+    }
+    if (data.sequence !== undefined && data.sequence !== null && (!Number.isInteger(data.sequence) || data.sequence <= 0)) {
+      throw new Error("Invalid project field: sequence must be a positive integer.");
+    }
+  }
+
   async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
+    await this.assertCanMutateContent();
+    this.assertProjectPayload(data);
     try {
       const targetSequence = data.sequence;
       if (targetSequence !== undefined && targetSequence !== null) {
@@ -716,7 +765,7 @@ export class SupabaseService implements IWorkspaceService {
       if (error) {
         throw new Error(error.message || JSON.stringify(error));
       }
-      this.triggerFrontendSync();
+      this.triggerFrontendSync(["portfolio", "site-content"]);
       return newProject as Project;
     } catch (e) {
       console.error("Error inserting project in Supabase:", e);
@@ -725,28 +774,49 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
-  private triggerFrontendSync() {
+  private triggerFrontendSync(tags: string[] = ["portfolio", "site-content"]) {
+    const uniqueTags = Array.from(new Set(tags));
+
+    if (typeof window !== "undefined") {
+      fetch("/api/revalidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: uniqueTags }),
+      }).catch((err) => {
+        console.error("Failed to request frontend revalidation:", err);
+      });
+      return;
+    }
+
     const configuredUrl = process.env.FRONTEND_REVALIDATE_URL;
     const revalidateSecret = process.env.REVALIDATE_SECRET;
-    const endpoint = configuredUrl || "https://revti-frontend-dashboard.vercel.app/api/revalidate";
 
-    try {
-      const url = new URL(endpoint);
-      url.searchParams.set("tag", "projects");
+    if (!configuredUrl) {
+      console.warn("FRONTEND_REVALIDATE_URL is not configured; skipping frontend revalidation.");
+      return;
+    }
 
-      if (revalidateSecret) {
-        url.searchParams.set("secret", revalidateSecret);
+    for (const tag of uniqueTags) {
+      try {
+        const url = new URL(configuredUrl);
+        url.searchParams.set("tag", tag);
+
+        if (revalidateSecret) {
+          url.searchParams.set("secret", revalidateSecret);
+        }
+
+        fetch(url.toString(), { method: "GET" }).catch((err) => {
+          console.error(`Failed to sync frontend tag ${tag}:`, err);
+        });
+      } catch (err) {
+        console.error("Invalid frontend revalidation URL configured:", err);
       }
-
-      fetch(url.toString(), { method: "GET" }).catch((err) => {
-        console.error("Failed to sync portfolio changes with Revti frontend:", err);
-      });
-    } catch (err) {
-      console.error("Invalid frontend revalidation URL configured:", err);
     }
   }
 
   async updateProject(id: string, data: Partial<Project>): Promise<Project> {
+    await this.assertCanMutateContent();
+    this.assertProjectPayload(data);
     try {
       const targetSequence = data.sequence;
       if (targetSequence !== undefined && targetSequence !== null) {
@@ -786,7 +856,7 @@ export class SupabaseService implements IWorkspaceService {
       if (error) {
         throw new Error(error.message || JSON.stringify(error));
       }
-      this.triggerFrontendSync();
+      this.triggerFrontendSync(["portfolio", "site-content"]);
       return updated as Project;
     } catch (e) {
       console.error("Error updating project in Supabase:", e);
@@ -796,22 +866,18 @@ export class SupabaseService implements IWorkspaceService {
   }
 
   async deleteProject(id: string): Promise<void> {
+    await this.assertCanMutateContent();
     try {
       const { error } = await this.client
         .from("projects")
         .delete()
         .eq("id", id);
-      if (error) {
-        console.warn("Supabase 'projects' table delete failed, falling back to mock delete:", error.message);
-        const mockService = new MockService();
-        await mockService.deleteProject(id);
-      } else {
-        this.triggerFrontendSync();
-      }
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      this.triggerFrontendSync(["portfolio", "site-content"]);
     } catch (e) {
-      console.warn("Error deleting project in Supabase, falling back to mock delete:", e);
-      const mockService = new MockService();
-      await mockService.deleteProject(id);
+      console.error("Error deleting project in Supabase:", e);
+      if (e instanceof Error) throw e;
+      throw new Error(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : JSON.stringify(e));
     }
   }
 
@@ -822,20 +888,16 @@ export class SupabaseService implements IWorkspaceService {
         .select("*")
         .order("name", { ascending: true });
       
-      if (error) {
-        console.warn("Supabase 'project_categories' table query failed, falling back to mock:", error.message);
-        const mockService = new MockService();
-        return await mockService.getProjectCategories();
-      }
+      if (error) throw error;
       return data || [];
     } catch (e) {
-      console.warn("Error querying project categories, falling back to mock:", e);
-      const mockService = new MockService();
-      return await mockService.getProjectCategories();
+      console.warn("Error querying project categories:", e);
+      return [];
     }
   }
 
   async createProjectCategory(name: string): Promise<ProjectCategory> {
+    await this.assertCanMutateContent();
     try {
       const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
       const { data, error } = await this.client
@@ -844,39 +906,164 @@ export class SupabaseService implements IWorkspaceService {
         .select()
         .single();
       
-      if (error) {
-        console.warn("Supabase 'project_categories' insert failed, falling back to mock:", error.message);
-        const mockService = new MockService();
-        return await mockService.createProjectCategory(name);
-      }
-      this.triggerFrontendSync();
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      this.triggerFrontendSync(["project-categories", "portfolio", "site-content"]);
       return data;
     } catch (e) {
-      console.warn("Error creating project category in Supabase, falling back to mock:", e);
-      const mockService = new MockService();
-      return await mockService.createProjectCategory(name);
+      console.error("Error creating project category in Supabase:", e);
+      if (e instanceof Error) throw e;
+      throw new Error(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : JSON.stringify(e));
     }
   }
 
   async deleteProjectCategory(id: string): Promise<void> {
+    await this.assertCanMutateContent();
     try {
       const { error } = await this.client
         .from("project_categories")
         .delete()
         .eq("id", id);
       
-      if (error) {
-        console.warn("Supabase 'project_categories' delete failed, falling back to mock:", error.message);
-        const mockService = new MockService();
-        await mockService.deleteProjectCategory(id);
-      } else {
-        this.triggerFrontendSync();
-      }
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      this.triggerFrontendSync(["project-categories", "portfolio", "site-content"]);
     } catch (e) {
-      console.warn("Error deleting project category in Supabase, falling back to mock:", e);
-      const mockService = new MockService();
-      await mockService.deleteProjectCategory(id);
+      console.error("Error deleting project category in Supabase:", e);
+      if (e instanceof Error) throw e;
+      throw new Error(e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : JSON.stringify(e));
     }
+  }
+
+  async getSiteSettings(): Promise<SiteSetting[]> {
+    const { data, error } = await this.client
+      .from("site_settings")
+      .select("*")
+      .order("key", { ascending: true });
+    if (error) throw error;
+    return (data || []) as SiteSetting[];
+  }
+
+  async upsertSiteSetting(key: string, value: JsonRecord): Promise<SiteSetting> {
+    await this.assertCanMutateContent();
+    const { data, error } = await this.client
+      .from("site_settings")
+      .upsert({ key, value, updated_at: new Date().toISOString() })
+      .select()
+      .single();
+    if (error) throw error;
+    this.triggerFrontendSync(["site-settings", "site-content"]);
+    return data as SiteSetting;
+  }
+
+  async getClientLogos(includeInactive = false): Promise<ClientLogo[]> {
+    let query = this.client
+      .from("client_logos")
+      .select("*")
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    if (!includeInactive) query = query.eq("is_active", true);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []) as ClientLogo[];
+  }
+
+  async createClientLogo(data: Omit<ClientLogo, "id" | "created_at" | "deleted_at">): Promise<ClientLogo> {
+    await this.assertCanMutateContent();
+    this.assertValidOptionalUrl(data.logo_image, "logo_image");
+    const { data: created, error } = await this.client.from("client_logos").insert(data).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["client-logos", "site-content"]);
+    return created as ClientLogo;
+  }
+
+  async updateClientLogo(id: string, data: Partial<Omit<ClientLogo, "id" | "created_at" | "deleted_at">>): Promise<ClientLogo> {
+    await this.assertCanMutateContent();
+    this.assertValidOptionalUrl(data.logo_image, "logo_image");
+    const { data: updated, error } = await this.client.from("client_logos").update(data).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["client-logos", "site-content"]);
+    return updated as ClientLogo;
+  }
+
+  async deleteClientLogo(id: string): Promise<ClientLogo> {
+    await this.assertCanMutateContent();
+    const { data, error } = await this.client.from("client_logos").update({ deleted_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["client-logos", "site-content"]);
+    return data as ClientLogo;
+  }
+
+  async getImpactNumbers(includeInactive = false): Promise<ImpactNumber[]> {
+    let query = this.client
+      .from("impact_numbers")
+      .select("*")
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    if (!includeInactive) query = query.eq("is_active", true);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []) as ImpactNumber[];
+  }
+
+  async createImpactNumber(data: Omit<ImpactNumber, "id" | "created_at" | "deleted_at">): Promise<ImpactNumber> {
+    await this.assertCanMutateContent();
+    const { data: created, error } = await this.client.from("impact_numbers").insert(data).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["impact-numbers", "site-content"]);
+    return created as ImpactNumber;
+  }
+
+  async updateImpactNumber(id: string, data: Partial<Omit<ImpactNumber, "id" | "created_at" | "deleted_at">>): Promise<ImpactNumber> {
+    await this.assertCanMutateContent();
+    const { data: updated, error } = await this.client.from("impact_numbers").update(data).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["impact-numbers", "site-content"]);
+    return updated as ImpactNumber;
+  }
+
+  async deleteImpactNumber(id: string): Promise<ImpactNumber> {
+    await this.assertCanMutateContent();
+    const { data, error } = await this.client.from("impact_numbers").update({ deleted_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["impact-numbers", "site-content"]);
+    return data as ImpactNumber;
+  }
+
+  async getSocialLinks(includeInactive = false): Promise<SocialLink[]> {
+    let query = this.client
+      .from("social_links")
+      .select("*")
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    if (!includeInactive) query = query.eq("is_active", true);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []) as SocialLink[];
+  }
+
+  async createSocialLink(data: Omit<SocialLink, "id" | "created_at" | "deleted_at">): Promise<SocialLink> {
+    await this.assertCanMutateContent();
+    this.assertValidOptionalUrl(data.profile_url, "profile_url");
+    const { data: created, error } = await this.client.from("social_links").insert(data).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["social-links", "site-content"]);
+    return created as SocialLink;
+  }
+
+  async updateSocialLink(id: string, data: Partial<Omit<SocialLink, "id" | "created_at" | "deleted_at">>): Promise<SocialLink> {
+    await this.assertCanMutateContent();
+    this.assertValidOptionalUrl(data.profile_url, "profile_url");
+    const { data: updated, error } = await this.client.from("social_links").update(data).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["social-links", "site-content"]);
+    return updated as SocialLink;
+  }
+
+  async deleteSocialLink(id: string): Promise<SocialLink> {
+    await this.assertCanMutateContent();
+    const { data, error } = await this.client.from("social_links").update({ deleted_at: new Date().toISOString() }).eq("id", id).select().single();
+    if (error) throw error;
+    this.triggerFrontendSync(["social-links", "site-content"]);
+    return data as SocialLink;
   }
 
   async uploadProjectFile(file: File): Promise<string> {

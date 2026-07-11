@@ -6,12 +6,7 @@ import { LayoutShell } from "@/components/layout-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getWorkspaceService, JsonRecord } from "@/lib/services/api";
 
 interface HeroButton {
   text: string;
@@ -63,13 +58,12 @@ export default function SiteSettingsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data } = await supabase.from("site_settings").select("*");
-        if (data) {
-          const heroRow = data.find((r) => r.key === "hero_section");
-          const contactRow = data.find((r) => r.key === "contact_section");
-          if (heroRow?.value) setHero({ ...defaultHero, ...heroRow.value });
-          if (contactRow?.value) setContact({ ...defaultContact, ...contactRow.value });
-        }
+        const service = getWorkspaceService();
+        const data = await service.getSiteSettings();
+        const heroRow = data.find((r) => r.key === "hero_section");
+        const contactRow = data.find((r) => r.key === "contact_section");
+        if (heroRow?.value) setHero({ ...defaultHero, ...heroRow.value } as HeroSection);
+        if (contactRow?.value) setContact({ ...defaultContact, ...contactRow.value } as ContactSection);
       } catch (e) {
         console.error(e);
       } finally {
@@ -87,10 +81,9 @@ export default function SiteSettingsPage() {
   const saveHero = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("site_settings")
-        .upsert({ key: "hero_section", value: hero, updated_at: new Date().toISOString() });
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const saved = await service.upsertSiteSetting("hero_section", hero as unknown as JsonRecord);
+      setHero({ ...defaultHero, ...saved.value } as HeroSection);
       showAlert("success", "Hero section saved successfully!");
     } catch (e: unknown) {
       showAlert("error", e instanceof Error ? e.message : "Failed to save hero section.");
@@ -102,10 +95,9 @@ export default function SiteSettingsPage() {
   const saveContact = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("site_settings")
-        .upsert({ key: "contact_section", value: contact, updated_at: new Date().toISOString() });
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const saved = await service.upsertSiteSetting("contact_section", contact as unknown as JsonRecord);
+      setContact({ ...defaultContact, ...saved.value } as ContactSection);
       showAlert("success", "Contact section saved successfully!");
     } catch (e: unknown) {
       showAlert("error", e instanceof Error ? e.message : "Failed to save contact section.");
