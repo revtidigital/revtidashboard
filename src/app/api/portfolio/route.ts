@@ -4,12 +4,23 @@ export const dynamic = "force-dynamic";
 
 type CorsHeaders = Record<string, string>;
 
+const DEFAULT_PUBLIC_FRONTEND_ORIGIN = "https://revti-frontend-dashboard.vercel.app";
+
 const getAllowedOrigin = (requestOrigin: string | null) => {
-  const configuredOrigin = process.env.PUBLIC_FRONTEND_ORIGIN;
+  const configuredOrigins = [
+    process.env.PUBLIC_FRONTEND_ORIGIN,
+    DEFAULT_PUBLIC_FRONTEND_ORIGIN,
+  ].filter(Boolean) as string[];
 
-  if (configuredOrigin) return configuredOrigin;
+  if (requestOrigin && configuredOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
 
-  if (process.env.NODE_ENV !== "production" && requestOrigin?.startsWith("http://localhost")) {
+  if (!requestOrigin) {
+    return configuredOrigins[0] || null;
+  }
+
+  if (process.env.NODE_ENV !== "production" && requestOrigin.startsWith("http://localhost")) {
     return requestOrigin;
   }
 
@@ -65,6 +76,74 @@ const toPublicCategory = (category: ProjectCategory) => ({
   slug: category.slug,
 });
 
+const trim = (value?: string | null) => value?.trim() || undefined;
+
+const compactObject = <T extends Record<string, unknown>>(object: T) => Object.fromEntries(
+  Object.entries(object).filter(([, value]) => {
+    if (value === undefined || value === null || value === "") return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "object") return Object.keys(value).length > 0;
+    return true;
+  })
+);
+
+const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
+  const category = categories.find((item) => item.slug === project.cat);
+  return trim(project.industry) || category?.name || project.cat;
+};
+
+const getRelatedProjects = (project: Project, projects: Project[]) => {
+  const tags = new Set(project.tags || []);
+
+  return null;
+};
+
+const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
+  const industry = getCategoryName(project, categories);
+  const overviewCards = [
+    { title: "The Challenge", body: trim(project.challenge) },
+    { title: "Our Approach", body: trim(project.approach) },
+    { title: "The Impact", body: trim(project.impact) },
+    { title: "Compliance First", body: trim(project.compliance) },
+  ].filter((item) => item.body);
+
+  return compactObject({
+    ...toPublicProject(project),
+    slug: project.id,
+    category: project.cat,
+    thumbnail: trim(project.thumb),
+    hero: compactObject({
+      eyebrow: [project.cat, industry].filter(Boolean).join(" · "),
+      client: trim(project.client),
+      industry,
+      year: trim(project.year),
+      sprint: trim(project.sprint),
+      title: trim(project.title),
+      description: trim(project.tagline) || trim(project.shortDesc),
+      image: trim(project.thumb),
+    }),
+    overview: compactObject({
+      title: trim(project.overview_title) || trim(project.headline),
+      body: trim(project.desc),
+      cards: overviewCards,
+    }),
+    process: (project.process || []).filter((step) => step.phase || step.title || step.description),
+    brandShowcase: (project.gallery || []).filter(Boolean),
+    impactResults: (project.stats || [])
+      .filter((stat) => stat.num || stat.label || stat.before || stat.after)
+      .map((stat) => compactObject({
+        label: trim(stat.label),
+        value: trim(stat.num),
+        before: trim(stat.before),
+        after: trim(stat.after),
+      })),
+    video: project.video_type && project.video_type !== "none" && project.video_url
+      ? { type: project.video_type, url: project.video_url }
+      : undefined,
+    relatedWork: getRelatedProjects(project, projects),
+  });
+};
+
 export async function OPTIONS(request: Request) {
   return new Response(null, {
     status: 204,
@@ -91,19 +170,51 @@ export async function GET(request: Request) {
       return acc;
     }, {});
 
+    const publishedProjects = projects.filter((project) => project.status !== "draft");
+    const publicProjects = publishedProjects.map(toPublicProject);
+    const publicCategories = categories.map(toPublicCategory);
+    const legacyProjects = publishedProjects.map((project) => toLegacyFrontendProject(project, categories, publishedProjects));
+    const hero = siteSettings.hero_section || {};
+    const contact = siteSettings.contact_section || {};
+    const numbers = impactNumbers.map((item) => ({
+      value: `${item.number}${item.suffix || ""}`,
+      label: item.title,
+      subtext: item.short_desc || "",
+    }));
+    const logos = clientLogos.map((item) => ({
+      name: item.client_name || "",
+      logo: item.logo_image,
+    }));
+    const socials = socialLinks.map((item) => ({
+      platform: item.platform,
+      link: item.profile_url,
+      icon: item.icon || "",
+    }));
+
     return Response.json(
       {
         success: true,
         data: {
-          projects: projects
-            .filter((project) => project.status !== "draft")
-            .map(toPublicProject),
-          categories: categories.map(toPublicCategory),
+          projects: publicProjects,
+          categories: publicCategories,
           siteSettings,
           clientLogos,
           impactNumbers,
           socialLinks,
         },
+        // Backwards-compatible payload for the deployed public frontend.
+        home: {
+          hero,
+          numbers,
+          filters: ["All", ...categories.map((category) => category.name)],
+          projects: legacyProjects,
+          logos,
+          contact,
+          socials,
+        },
+        projects: legacyProjects,
+        categories: publicCategories,
+        source: "revti-dashboard-portfolio",
       },
       { headers }
     );
@@ -121,6 +232,15 @@ export async function GET(request: Request) {
           clientLogos: [],
           impactNumbers: [],
           socialLinks: [],
+        },
+        home: {
+          hero: {},
+          numbers: [],
+          filters: ["All"],
+          projects: [],
+          logos: [],
+          contact: {},
+          socials: [],
         },
       },
       { status: 500, headers }
