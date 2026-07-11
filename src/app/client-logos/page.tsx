@@ -6,17 +6,12 @@ import { LayoutShell } from "@/components/layout-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getWorkspaceService } from "@/lib/services/api";
 
 interface ClientLogo {
   id?: string;
-  client_name: string;
+  client_name: string | null;
   logo_image: string;
   display_order: number;
   is_active: boolean;
@@ -45,18 +40,17 @@ export default function ClientLogosPage() {
 
   const load = async () => {
     try {
-      const { data, error } = await supabase
-        .from("client_logos")
-        .select("*")
-        .is("deleted_at", null)
-        .order("display_order", { ascending: true });
-      if (error) throw error;
-      setLogos(data || []);
+      const service = getWorkspaceService();
+      const data = await service.getClientLogos(true);
+      setLogos(data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const openNew = () => {
     setEditItem({ ...emptyLogo(), display_order: logos.length + 1 });
@@ -72,22 +66,24 @@ export default function ClientLogosPage() {
     setSaving("form");
     try {
       if (isNew) {
-        const { error } = await supabase.from("client_logos").insert({
-          client_name: editItem.client_name.trim(),
+        const service = getWorkspaceService();
+        const created = await service.createClientLogo({
+          client_name: (editItem.client_name || "").trim(),
           logo_image: editItem.logo_image.trim(),
           display_order: editItem.display_order,
           is_active: editItem.is_active,
         });
-        if (error) throw error;
+        setLogos((prev) => [...prev, created].sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Logo added!");
       } else {
-        const { error } = await supabase.from("client_logos").update({
-          client_name: editItem.client_name.trim(),
+        const service = getWorkspaceService();
+        const updated = await service.updateClientLogo(editItem.id!, {
+          client_name: (editItem.client_name || "").trim(),
           logo_image: editItem.logo_image.trim(),
           display_order: editItem.display_order,
           is_active: editItem.is_active,
-        }).eq("id", editItem.id!);
-        if (error) throw error;
+        });
+        setLogos((prev) => prev.map((logo) => logo.id === updated.id ? updated : logo).sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Logo updated!");
       }
       closeEdit();
@@ -101,8 +97,9 @@ export default function ClientLogosPage() {
     if (!confirm("Delete this logo?")) return;
     setSaving(id);
     try {
-      const { error } = await supabase.from("client_logos").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const deleted = await service.deleteClientLogo(id);
+      setLogos((prev) => prev.filter((logo) => logo.id !== deleted.id));
       showAlert("success", "Deleted.");
       await load();
     } catch (e: unknown) {
@@ -113,7 +110,9 @@ export default function ClientLogosPage() {
   const toggleActive = async (item: ClientLogo) => {
     setSaving(item.id!);
     try {
-      await supabase.from("client_logos").update({ is_active: !item.is_active }).eq("id", item.id!);
+      const service = getWorkspaceService();
+      const updated = await service.updateClientLogo(item.id!, { is_active: !item.is_active });
+      setLogos((prev) => prev.map((logo) => logo.id === updated.id ? updated : logo));
       await load();
     } catch (e) { console.error(e); }
     finally { setSaving(null); }
@@ -189,7 +188,7 @@ export default function ClientLogosPage() {
 
               <div className="space-y-2">
                 <Label className="text-slate-300 text-sm">Client Name (optional)</Label>
-                <Input value={editItem.client_name} onChange={(e) => setEditItem({ ...editItem, client_name: e.target.value })} placeholder="Apollo Health" className="bg-[#07090F] border-[#1E2D47] text-white placeholder:text-slate-600" />
+                <Input value={editItem.client_name || ""} onChange={(e) => setEditItem({ ...editItem, client_name: e.target.value })} placeholder="Apollo Health" className="bg-[#07090F] border-[#1E2D47] text-white placeholder:text-slate-600" />
               </div>
 
               <div className="space-y-2">

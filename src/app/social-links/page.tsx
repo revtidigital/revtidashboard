@@ -6,12 +6,7 @@ import { LayoutShell } from "@/components/layout-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getWorkspaceService } from "@/lib/services/api";
 
 const PLATFORMS = [
   "Instagram", "Twitter/X", "LinkedIn", "Facebook", "YouTube",
@@ -41,7 +36,7 @@ interface SocialLink {
   id?: string;
   platform: string;
   profile_url: string;
-  icon: string;
+  icon: string | null;
   display_order: number;
   is_active: boolean;
   deleted_at?: string | null;
@@ -70,18 +65,17 @@ export default function SocialLinksPage() {
 
   const load = async () => {
     try {
-      const { data, error } = await supabase
-        .from("social_links")
-        .select("*")
-        .is("deleted_at", null)
-        .order("display_order", { ascending: true });
-      if (error) throw error;
-      setLinks(data || []);
+      const service = getWorkspaceService();
+      const data = await service.getSocialLinks(true);
+      setLinks(data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const openNew = () => {
     setEditItem({ ...emptyLink(), display_order: links.length + 1 });
@@ -102,24 +96,26 @@ export default function SocialLinksPage() {
     setSaving("form");
     try {
       if (isNew) {
-        const { error } = await supabase.from("social_links").insert({
+        const service = getWorkspaceService();
+        const created = await service.createSocialLink({
           platform: editItem.platform,
           profile_url: editItem.profile_url.trim(),
           icon: editItem.icon,
           display_order: editItem.display_order,
           is_active: editItem.is_active,
         });
-        if (error) throw error;
+        setLinks((prev) => [...prev, created].sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Social link added!");
       } else {
-        const { error } = await supabase.from("social_links").update({
+        const service = getWorkspaceService();
+        const updated = await service.updateSocialLink(editItem.id!, {
           platform: editItem.platform,
           profile_url: editItem.profile_url.trim(),
           icon: editItem.icon,
           display_order: editItem.display_order,
           is_active: editItem.is_active,
-        }).eq("id", editItem.id!);
-        if (error) throw error;
+        });
+        setLinks((prev) => prev.map((link) => link.id === updated.id ? updated : link).sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Social link updated!");
       }
       closeEdit();
@@ -133,8 +129,9 @@ export default function SocialLinksPage() {
     if (!confirm("Delete this social link?")) return;
     setSaving(id);
     try {
-      const { error } = await supabase.from("social_links").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const deleted = await service.deleteSocialLink(id);
+      setLinks((prev) => prev.filter((link) => link.id !== deleted.id));
       showAlert("success", "Deleted.");
       await load();
     } catch (e: unknown) {
@@ -145,7 +142,9 @@ export default function SocialLinksPage() {
   const toggleActive = async (item: SocialLink) => {
     setSaving(item.id!);
     try {
-      await supabase.from("social_links").update({ is_active: !item.is_active }).eq("id", item.id!);
+      const service = getWorkspaceService();
+      const updated = await service.updateSocialLink(item.id!, { is_active: !item.is_active });
+      setLinks((prev) => prev.map((link) => link.id === updated.id ? updated : link));
       await load();
     } catch (e) { console.error(e); }
     finally { setSaving(null); }

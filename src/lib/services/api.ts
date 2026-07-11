@@ -171,6 +171,55 @@ export interface ProjectCategory {
   created_at?: string;
 }
 
+
+export type JsonRecord = Record<string, unknown>;
+
+export interface SiteSetting {
+  key: string;
+  value: JsonRecord;
+  updated_at: string;
+}
+
+export interface ClientLogo {
+  id: string;
+  client_name: string | null;
+  logo_image: string;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  deleted_at?: string | null;
+}
+
+export interface ImpactNumber {
+  id: string;
+  number: number;
+  suffix: string | null;
+  title: string;
+  short_desc: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  deleted_at?: string | null;
+}
+
+export interface SocialLink {
+  id: string;
+  platform: string;
+  profile_url: string;
+  icon: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  deleted_at?: string | null;
+}
+
+export interface SiteContent {
+  siteSettings: Record<string, JsonRecord>;
+  clientLogos: ClientLogo[];
+  impactNumbers: ImpactNumber[];
+  socialLinks: SocialLink[];
+}
+
 export interface Project {
   id: string;
   cat: string;
@@ -336,6 +385,22 @@ export interface IWorkspaceService {
   createProjectCategory(name: string): Promise<ProjectCategory>;
   deleteProjectCategory(id: string): Promise<void>;
   uploadProjectFile(file: File): Promise<string>;
+
+  // Website content
+  getSiteSettings(): Promise<SiteSetting[]>;
+  upsertSiteSetting(key: string, value: JsonRecord): Promise<SiteSetting>;
+  getClientLogos(includeInactive?: boolean): Promise<ClientLogo[]>;
+  createClientLogo(data: Omit<ClientLogo, "id" | "created_at" | "deleted_at">): Promise<ClientLogo>;
+  updateClientLogo(id: string, data: Partial<Omit<ClientLogo, "id" | "created_at" | "deleted_at">>): Promise<ClientLogo>;
+  deleteClientLogo(id: string): Promise<ClientLogo>;
+  getImpactNumbers(includeInactive?: boolean): Promise<ImpactNumber[]>;
+  createImpactNumber(data: Omit<ImpactNumber, "id" | "created_at" | "deleted_at">): Promise<ImpactNumber>;
+  updateImpactNumber(id: string, data: Partial<Omit<ImpactNumber, "id" | "created_at" | "deleted_at">>): Promise<ImpactNumber>;
+  deleteImpactNumber(id: string): Promise<ImpactNumber>;
+  getSocialLinks(includeInactive?: boolean): Promise<SocialLink[]>;
+  createSocialLink(data: Omit<SocialLink, "id" | "created_at" | "deleted_at">): Promise<SocialLink>;
+  updateSocialLink(id: string, data: Partial<Omit<SocialLink, "id" | "created_at" | "deleted_at">>): Promise<SocialLink>;
+  deleteSocialLink(id: string): Promise<SocialLink>;
 
   // Project Management
   getPMProjects(): Promise<PMProject[]>;

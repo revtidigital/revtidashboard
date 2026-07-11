@@ -74,6 +74,7 @@ function PortfolioContent() {
   const searchParams = useSearchParams();
   const { user } = useUser();
   const isAuthorized = user?.role === "admin" || user?.role === "edit";
+  const refreshParam = searchParams.get("refresh");
   const frontendUrl = "https://revti-frontend-dashboard.vercel.app";
 
   // Data State
@@ -134,7 +135,7 @@ function PortfolioContent() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [user]);
+  }, [user, refreshParam]);
 
   // Handle URL Query Params for View/Edit
   useEffect(() => {
