@@ -95,24 +95,7 @@ const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
 const getRelatedProjects = (project: Project, projects: Project[]) => {
   const tags = new Set(project.tags || []);
 
-  return projects
-    .filter((item) => item.id !== project.id)
-    .map((item) => {
-      const tagMatches = (item.tags || []).filter((tag) => tags.has(tag)).length;
-      const categoryMatch = item.cat === project.cat ? 1 : 0;
-      return { item, score: tagMatches + categoryMatch };
-    })
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(({ item }) => ({
-      id: item.id,
-      title: item.title,
-      category: item.cat,
-      shortDesc: trim(item.shortDesc),
-      thumb: trim(item.thumb),
-      tags: item.tags || [],
-    }));
+  return null;
 };
 
 const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
@@ -259,9 +242,6 @@ export async function GET(request: Request) {
           contact: {},
           socials: [],
         },
-        projects: [],
-        categories: [],
-        source: "revti-dashboard-portfolio",
       },
       { status: 500, headers }
     );
