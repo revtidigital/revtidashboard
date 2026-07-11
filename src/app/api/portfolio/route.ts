@@ -1,39 +1,91 @@
-import { getWorkspaceService, Project, ProjectCategory } from "@/lib/services/api";
-
-const FRONTEND_ORIGIN = "https://revti-frontend-dashboard.vercel.app";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": FRONTEND_ORIGIN,
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+import { getWorkspaceService, Project, ProjectCategory, JsonRecord } from "@/lib/services/api";
 
 export const dynamic = "force-dynamic";
 
-type NonEmptyRecord = Record<string, unknown>;
+type CorsHeaders = Record<string, string>;
+
+const DEFAULT_PUBLIC_FRONTEND_ORIGIN = "https://revti-frontend-dashboard.vercel.app";
+
+const getAllowedOrigin = (requestOrigin: string | null) => {
+  const configuredOrigins = [
+    process.env.PUBLIC_FRONTEND_ORIGIN,
+    DEFAULT_PUBLIC_FRONTEND_ORIGIN,
+  ].filter(Boolean) as string[];
+
+  if (requestOrigin && configuredOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  if (!requestOrigin) {
+    return configuredOrigins[0] || null;
+  }
+
+  if (process.env.NODE_ENV !== "production" && requestOrigin.startsWith("http://localhost")) {
+    return requestOrigin;
+  }
+
+  return null;
+};
+
+const getCorsHeaders = (requestOrigin: string | null): CorsHeaders => {
+  const allowedOrigin = getAllowedOrigin(requestOrigin);
+  return {
+    ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
+};
+
+const normalizeArray = <T>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
+
+const toPublicProject = (project: Project) => ({
+  id: project.id,
+  cat: project.cat,
+  year: project.year,
+  title: project.title,
+  client: project.client,
+  tagline: project.tagline,
+  headline: project.headline,
+  desc: project.desc,
+  shortDesc: project.shortDesc,
+  tags: normalizeArray(project.tags),
+  thumb: project.thumb,
+  gallery: normalizeArray(project.gallery),
+  stats: normalizeArray(project.stats),
+  feedback: normalizeArray(project.feedback),
+  status: project.status,
+  sequence: project.sequence,
+  created_at: project.created_at,
+  video_type: project.video_type,
+  video_url: project.video_url,
+  industry: project.industry,
+  sprint: project.sprint,
+  client_logo: project.client_logo,
+  overview_title: project.overview_title,
+  challenge: project.challenge,
+  approach: project.approach,
+  impact: project.impact,
+  compliance: project.compliance,
+  process: normalizeArray(project.process),
+});
+
+const toPublicCategory = (category: ProjectCategory) => ({
+  id: category.id,
+  name: category.name,
+  slug: category.slug,
+});
 
 const trim = (value?: string | null) => value?.trim() || undefined;
 
-const compactObject = <T extends NonEmptyRecord>(object: T) => {
-  return Object.fromEntries(
-    Object.entries(object).filter(([, value]) => {
-      if (value === undefined || value === null || value === "") return false;
-      if (Array.isArray(value)) return value.length > 0;
-      if (typeof value === "object") return Object.keys(value).length > 0;
-      return true;
-    })
-  );
-};
-
-const sortProjects = (projects: Project[]) => {
-  return [...projects].sort((a, b) => {
-    const aSeq = a.sequence ?? Number.MAX_SAFE_INTEGER;
-    const bSeq = b.sequence ?? Number.MAX_SAFE_INTEGER;
-
-    if (aSeq !== bSeq) return aSeq - bSeq;
-    return a.title.localeCompare(b.title);
-  });
-};
+const compactObject = <T extends Record<string, unknown>>(object: T) => Object.fromEntries(
+  Object.entries(object).filter(([, value]) => {
+    if (value === undefined || value === null || value === "") return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "object") return Object.keys(value).length > 0;
+    return true;
+  })
+);
 
 const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
   const category = categories.find((item) => item.slug === project.cat);
@@ -63,7 +115,7 @@ const getRelatedProjects = (project: Project, projects: Project[]) => {
     }));
 };
 
-const toFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
+const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
   const industry = getCategoryName(project, categories);
   const overviewCards = [
     { title: "The Challenge", body: trim(project.challenge) },
@@ -73,12 +125,9 @@ const toFrontendProject = (project: Project, categories: ProjectCategory[], proj
   ].filter((item) => item.body);
 
   return compactObject({
-    id: project.id,
+    ...toPublicProject(project),
     slug: project.id,
     category: project.cat,
-    title: trim(project.title),
-    shortDesc: trim(project.shortDesc),
-    tags: project.tags || [],
     thumbnail: trim(project.thumb),
     hero: compactObject({
       eyebrow: [project.cat, industry].filter(Boolean).join(" · "),
@@ -112,198 +161,109 @@ const toFrontendProject = (project: Project, categories: ProjectCategory[], proj
   });
 };
 
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
   return new Response(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: getCorsHeaders(request.headers.get("origin")),
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const headers = getCorsHeaders(request.headers.get("origin"));
+
   try {
     const service = getWorkspaceService();
-    const [projects, categories] = await Promise.all([
+    const [projects, categories, settingsRows, clientLogos, impactNumbers, socialLinks] = await Promise.all([
       service.getProjects(),
       service.getProjectCategories(),
+      service.getSiteSettings(),
+      service.getClientLogos(false),
+      service.getImpactNumbers(false),
+      service.getSocialLinks(false),
     ]);
 
-    const publishedProjects = sortProjects(
-      projects.filter((project) => project.status !== "draft")
-    );
-    const frontendProjects = publishedProjects.map((project) =>
-      toFrontendProject(project, categories, publishedProjects)
-    );
-    const clientLogos = publishedProjects
-      .map((project) => compactObject({
-        name: trim(project.client),
-        logo: trim(project.client_logo),
-      }))
-      .filter((logo, index, logos) =>
-        Boolean(logo.name) && logos.findIndex((item) => item.name === logo.name) === index
-      );
+    const siteSettings = settingsRows.reduce<Record<string, JsonRecord>>((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+    }, {});
 
-    // 1. Dynamic Hero & Contact Sections
-    let hero = {
-      tagline: "Digital Agency · Est. 2018",
-      heading: "We Make Digital Matter.",
-      heading_highlight: "Digital",
-      sub_heading: "From SEO-driven growth strategies to full-scale enterprise software — Revti Digital builds things that perform.",
-      buttons: [
-        { text: "View Our Work", link: "#portfolio", icon: "fa-arrow-down" },
-        { text: "Start a Project", link: "#contact", icon: "fa-paper-plane" }
-      ]
-    };
-
-    let contact = {
-      heading: "Let's Create Something Together",
-      heading_highlight: "Together",
-      button: { text: "Get In Touch!", link: "mailto:hello@revtidigital.com" }
-    };
-
-    // Import Supabase client dynamically to avoid any initialization side effects
-    const { supabase } = await import("@/lib/supabase");
-
-    if (supabase) {
-      try {
-        const { data: settings } = await supabase.from("site_settings").select("*");
-        if (settings) {
-          const heroSetting = settings.find((s) => s.key === "hero_section");
-          if (heroSetting && heroSetting.value) {
-            hero = { ...hero, ...heroSetting.value };
-          }
-          const contactSetting = settings.find((s) => s.key === "contact_section");
-          if (contactSetting && contactSetting.value) {
-            contact = { ...contact, ...contactSetting.value };
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to load site settings from Supabase, using defaults:", err);
-      }
-    }
-
-    // 2. Dynamic Impact Numbers (Supports unlimited stats, adjustable boxes)
-    let numbers = [
-      { value: "10+", label: "Years of Experience", subtext: "Delivering results since 2018" },
-      { value: "200+", label: "Clients Served", subtext: "Across 8+ industries globally" },
-      { value: "50+", label: "Projects Delivered", subtext: "On time, on budget, on point" },
-      { value: "8+", label: "Industries Covered", subtext: "Focused expertise across growth sectors" },
-    ];
-
-    if (supabase) {
-      try {
-        const { data: dbNumbers } = await supabase
-          .from("impact_numbers")
-          .select("*")
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order", { ascending: true });
-        if (dbNumbers && dbNumbers.length > 0) {
-          numbers = dbNumbers.map((n) => ({
-            value: `${n.number}${n.suffix || ""}`,
-            label: n.title,
-            subtext: n.short_desc || ""
-          }));
-        }
-      } catch (err) {
-        console.warn("Failed to load impact numbers from Supabase, using defaults:", err);
-      }
-    }
-
-    // 3. Dynamic Client Logos
-    let logos = clientLogos;
-
-    if (supabase) {
-      try {
-        const { data: dbLogos } = await supabase
-          .from("client_logos")
-          .select("*")
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order", { ascending: true });
-        if (dbLogos && dbLogos.length > 0) {
-          logos = dbLogos.map((l) => ({
-            name: l.client_name || "",
-            logo: l.logo_image
-          }));
-        }
-      } catch (err) {
-        console.warn("Failed to load client logos from Supabase, using defaults:", err);
-      }
-    }
-
-    // 4. Dynamic Social Media Links
-    let socials = [
-      { platform: "Instagram", link: "#", icon: "fa-instagram" },
-      { platform: "Twitter", link: "#", icon: "fa-twitter" },
-      { platform: "Linkedin", link: "#", icon: "fa-linkedin" }
-    ];
-
-    if (supabase) {
-      try {
-        const { data: dbSocials } = await supabase
-          .from("social_links")
-          .select("*")
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order", { ascending: true });
-        if (dbSocials && dbSocials.length > 0) {
-          socials = dbSocials.map((s) => ({
-            platform: s.platform,
-            link: s.profile_url,
-            icon: s.icon || ""
-          }));
-        }
-      } catch (err) {
-        console.warn("Failed to load social links from Supabase, using defaults:", err);
-      }
-    }
+    const publishedProjects = projects.filter((project) => project.status !== "draft");
+    const publicProjects = publishedProjects.map(toPublicProject);
+    const publicCategories = categories.map(toPublicCategory);
+    const legacyProjects = publishedProjects.map((project) => toLegacyFrontendProject(project, categories, publishedProjects));
+    const hero = siteSettings.hero_section || {};
+    const contact = siteSettings.contact_section || {};
+    const numbers = impactNumbers.map((item) => ({
+      value: `${item.number}${item.suffix || ""}`,
+      label: item.title,
+      subtext: item.short_desc || "",
+    }));
+    const logos = clientLogos.map((item) => ({
+      name: item.client_name || "",
+      logo: item.logo_image,
+    }));
+    const socials = socialLinks.map((item) => ({
+      platform: item.platform,
+      link: item.profile_url,
+      icon: item.icon || "",
+    }));
 
     return Response.json(
       {
+        success: true,
+        data: {
+          projects: publicProjects,
+          categories: publicCategories,
+          siteSettings,
+          clientLogos,
+          impactNumbers,
+          socialLinks,
+        },
+        // Backwards-compatible payload for the deployed public frontend.
         home: {
           hero,
           numbers,
           filters: ["All", ...categories.map((category) => category.name)],
-          projects: frontendProjects,
+          projects: legacyProjects,
           logos,
           contact,
-          socials
+          socials,
         },
-        projects: frontendProjects,
-        categories,
+        projects: legacyProjects,
+        categories: publicCategories,
         source: "revti-dashboard-portfolio",
       },
-      { headers: corsHeaders }
+      { headers }
     );
   } catch (error) {
     console.error("Failed to load public portfolio data:", error);
 
     return Response.json(
       {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to load portfolio data.",
+        data: {
+          projects: [],
+          categories: [],
+          siteSettings: {},
+          clientLogos: [],
+          impactNumbers: [],
+          socialLinks: [],
+        },
         home: {
-          hero: {
-            tagline: "Digital Agency · Est. 2018",
-            heading: "We Make Digital Matter.",
-            heading_highlight: "Digital",
-            sub_heading: "From SEO-driven growth strategies to full-scale enterprise software — Revti Digital builds things that perform.",
-            buttons: []
-          },
+          hero: {},
           numbers: [],
           filters: ["All"],
           projects: [],
           logos: [],
-          contact: {
-            heading: "Let's Create Something Together",
-            heading_highlight: "Together",
-            button: { text: "Get In Touch!", link: "mailto:hello@revtidigital.com" }
-          },
-          socials: []
+          contact: {},
+          socials: [],
         },
         projects: [],
         categories: [],
         source: "revti-dashboard-portfolio",
       },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers }
     );
   }
 }

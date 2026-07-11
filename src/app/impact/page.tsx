@@ -6,19 +6,14 @@ import { LayoutShell } from "@/components/layout-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getWorkspaceService } from "@/lib/services/api";
 
 interface ImpactNumber {
   id?: string;
   number: number;
-  suffix: string;
+  suffix: string | null;
   title: string;
-  short_desc: string;
+  short_desc: string | null;
   display_order: number;
   is_active: boolean;
   deleted_at?: string | null;
@@ -50,13 +45,9 @@ export default function ImpactPage() {
 
   const load = async () => {
     try {
-      const { data, error } = await supabase
-        .from("impact_numbers")
-        .select("*")
-        .is("deleted_at", null)
-        .order("display_order", { ascending: true });
-      if (error) throw error;
-      setItems(data || []);
+      const service = getWorkspaceService();
+      const data = await service.getImpactNumbers(true);
+      setItems(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -64,7 +55,10 @@ export default function ImpactPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const openNew = () => {
     setEditItem({ ...emptyItem(), display_order: items.length + 1 });
@@ -87,26 +81,28 @@ export default function ImpactPage() {
     setSaving("form");
     try {
       if (isNew) {
-        const { error } = await supabase.from("impact_numbers").insert({
+        const service = getWorkspaceService();
+        const created = await service.createImpactNumber({
           number: editItem.number,
           suffix: editItem.suffix,
           title: editItem.title.trim(),
-          short_desc: editItem.short_desc.trim(),
+          short_desc: (editItem.short_desc || "").trim(),
           display_order: editItem.display_order,
           is_active: editItem.is_active,
         });
-        if (error) throw error;
+        setItems((prev) => [...prev, created].sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Impact stat added!");
       } else {
-        const { error } = await supabase.from("impact_numbers").update({
+        const service = getWorkspaceService();
+        const updated = await service.updateImpactNumber(editItem.id!, {
           number: editItem.number,
           suffix: editItem.suffix,
           title: editItem.title.trim(),
-          short_desc: editItem.short_desc.trim(),
+          short_desc: (editItem.short_desc || "").trim(),
           display_order: editItem.display_order,
           is_active: editItem.is_active,
-        }).eq("id", editItem.id!);
-        if (error) throw error;
+        });
+        setItems((prev) => prev.map((item) => item.id === updated.id ? updated : item).sort((a, b) => a.display_order - b.display_order));
         showAlert("success", "Impact stat updated!");
       }
       closeEdit();
@@ -122,8 +118,9 @@ export default function ImpactPage() {
     if (!confirm("Delete this stat?")) return;
     setSaving(id);
     try {
-      const { error } = await supabase.from("impact_numbers").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const deleted = await service.deleteImpactNumber(id);
+      setItems((prev) => prev.filter((item) => item.id !== deleted.id));
       showAlert("success", "Deleted.");
       await load();
     } catch (e: unknown) {
@@ -136,8 +133,9 @@ export default function ImpactPage() {
   const toggleActive = async (item: ImpactNumber) => {
     setSaving(item.id!);
     try {
-      const { error } = await supabase.from("impact_numbers").update({ is_active: !item.is_active }).eq("id", item.id!);
-      if (error) throw error;
+      const service = getWorkspaceService();
+      const updated = await service.updateImpactNumber(item.id!, { is_active: !item.is_active });
+      setItems((prev) => prev.map((entry) => entry.id === updated.id ? updated : entry));
       await load();
     } catch (e) { console.error(e); }
     finally { setSaving(null); }
@@ -241,7 +239,7 @@ export default function ImpactPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-300 text-sm">Suffix</Label>
-                  <select value={editItem.suffix} onChange={(e) => setEditItem({ ...editItem, suffix: e.target.value })} className="w-full rounded-md border border-[#1E2D47] bg-[#07090F] text-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0EA5E9]">
+                  <select value={editItem.suffix || ""} onChange={(e) => setEditItem({ ...editItem, suffix: e.target.value })} className="w-full rounded-md border border-[#1E2D47] bg-[#07090F] text-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0EA5E9]">
                     {SUFFIX_OPTIONS.map((s) => <option key={s} value={s}>{s || "(none)"}</option>)}
                   </select>
                 </div>
@@ -254,7 +252,7 @@ export default function ImpactPage() {
 
               <div className="space-y-2">
                 <Label className="text-slate-300 text-sm">Short Description</Label>
-                <Input value={editItem.short_desc} onChange={(e) => setEditItem({ ...editItem, short_desc: e.target.value })} placeholder="Delivering results since 2018" className="bg-[#07090F] border-[#1E2D47] text-white placeholder:text-slate-600" />
+                <Input value={editItem.short_desc || ""} onChange={(e) => setEditItem({ ...editItem, short_desc: e.target.value })} placeholder="Delivering results since 2018" className="bg-[#07090F] border-[#1E2D47] text-white placeholder:text-slate-600" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
