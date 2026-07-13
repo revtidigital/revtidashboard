@@ -11,7 +11,10 @@ import {
   TrendingUp,
   User,
   Upload,
-  Video,
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  Eye,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -23,6 +26,7 @@ import {
   ProjectCategory,
   ProjectProcessStep,
   ProjectReelSection,
+  ProjectSectionVisibility,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,8 +40,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // CAT_LABELS removed in favor of dynamic categories
+
+const DEFAULT_SECTION_VISIBILITY: ProjectSectionVisibility = {
+  overview: false,
+  process: false,
+  impact: false,
+  gallery: false,
+  reel: false,
+  videoShowcase: false,
+  relatedProjects: false,
+};
+
+type SectionKey = keyof ProjectSectionVisibility;
+type OverviewDraft = { overviewTitle: string; desc: string; client: string; industry: string; year: string; challenge: string; approach: string; impact: string; compliance: string; tagsInput: string; };
+
+const textHasContent = (value?: string | null) => Boolean(value?.trim());
+const createDraftId = () => `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const withProcessIds = (steps: ProjectProcessStep[]) => steps.map((step) => ({ ...step, id: step.id || createDraftId() }));
+
+function sectionHasContent(key: SectionKey, data: {
+  overviewTitle: string; desc: string; challenge: string; approach: string; impact: string; compliance: string;
+  processSteps: ProjectProcessStep[]; stats: ProjectStat[]; galleryUrls: string[]; reelEnabled: boolean; reelVideoUrl: string; videoType: string; videoUrl: string;
+}) {
+  switch (key) {
+    case "overview": return [data.overviewTitle, data.desc, data.challenge, data.approach, data.impact, data.compliance].some(textHasContent);
+    case "process": return data.processSteps.some((step) => [step.phase, step.title, step.description].some(textHasContent));
+    case "impact": return data.stats.some((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent));
+    case "gallery": return data.galleryUrls.some(textHasContent);
+    case "reel": return data.reelEnabled && textHasContent(data.reelVideoUrl);
+    case "videoShowcase": return data.videoType !== "none" && textHasContent(data.videoUrl);
+    case "relatedProjects": return false;
+  }
+}
+
+function normalizeVisibility(project: Project | null, data: Parameters<typeof sectionHasContent>[1]): ProjectSectionVisibility {
+  return (Object.keys(DEFAULT_SECTION_VISIBILITY) as SectionKey[]).reduce((next, key) => {
+    const explicit = project?.section_visibility?.[key];
+    next[key] = typeof explicit === "boolean" ? explicit : sectionHasContent(key, data);
+    return next;
+  }, { ...DEFAULT_SECTION_VISIBILITY });
+}
 
 interface EditProjectPageProps {
   params: Promise<{ id: string }>;
@@ -101,6 +146,12 @@ function EditProjectContent({ id }: { id: string }) {
   const [impact, setImpact] = useState("");
   const [compliance, setCompliance] = useState("");
   const [processSteps, setProcessSteps] = useState<ProjectProcessStep[]>([]);
+  const [sectionVisibility, setSectionVisibility] = useState<ProjectSectionVisibility>(DEFAULT_SECTION_VISIBILITY);
+  const [activeDialog, setActiveDialog] = useState<SectionKey | null>(null);
+  const [overviewDraft, setOverviewDraft] = useState<OverviewDraft | null>(null);
+  const [processDraft, setProcessDraft] = useState<ProjectProcessStep[]>([]);
+  const [expandedProcessSteps, setExpandedProcessSteps] = useState<Record<string, boolean>>({});
+  const [sectionError, setSectionError] = useState<string | null>(null);
   const [reelEnabled, setReelEnabled] = useState(false);
   const [reelTitle, setReelTitle] = useState("");
   const [reelDescription, setReelDescription] = useState("");
@@ -111,6 +162,11 @@ function EditProjectContent({ id }: { id: string }) {
   const [reelLoop, setReelLoop] = useState(true);
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [categoryToDelete, setCategoryToDelete] = useState<ProjectCategory | null>(null);
+  const [replacementCategoryId, setReplacementCategoryId] = useState("");
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [categorySuccessMsg, setCategorySuccessMsg] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState("");
   const [isAddingCat, setIsAddingCat] = useState(false);
   const [isUploadingThumb, setIsUploadingThumb] = useState(false);
@@ -144,6 +200,7 @@ function EditProjectContent({ id }: { id: string }) {
           service.getProjectCategories()
         ]);
         setCategories(categoriesData);
+        setAllProjects(allProjects);
 
         if (isNew) {
           // Default sequence to next available sequence
@@ -155,6 +212,7 @@ function EditProjectContent({ id }: { id: string }) {
           if (categoriesData.length > 0) {
             setCat(categoriesData[0].slug);
           }
+          setSectionVisibility(DEFAULT_SECTION_VISIBILITY);
         } else {
           const found = allProjects.find((p) => String(p.id) === String(id));
           if (!found) {
@@ -188,7 +246,8 @@ function EditProjectContent({ id }: { id: string }) {
           setApproach(found.approach || "");
           setImpact(found.impact || "");
           setCompliance(found.compliance || "");
-          setProcessSteps(found.process || []);
+          const loadedProcess = withProcessIds(found.process || []);
+          setProcessSteps(loadedProcess);
           const reel = found.reelSection;
           setReelEnabled(reel?.enabled === true);
           setReelTitle(reel?.title || "");
@@ -198,6 +257,7 @@ function EditProjectContent({ id }: { id: string }) {
           setReelAutoplay(reel?.autoplay ?? false);
           setReelMuted(reel?.muted ?? true);
           setReelLoop(reel?.loop ?? true);
+          setSectionVisibility(normalizeVisibility(found, { overviewTitle: found.overview_title || "", desc: found.desc || "", challenge: found.challenge || "", approach: found.approach || "", impact: found.impact || "", compliance: found.compliance || "", processSteps: loadedProcess, stats: found.stats || [], galleryUrls: found.gallery || [], reelEnabled: reel?.enabled === true, reelVideoUrl: reel?.videoUrl || "", videoType: found.video_type || "none", videoUrl: found.video_url || "" }));
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -212,6 +272,123 @@ function EditProjectContent({ id }: { id: string }) {
 
   // Form Field Handlers
   // Form Field Handlers
+
+  const setSectionEnabled = (key: SectionKey, enabled: boolean) => {
+    setSectionVisibility((current) => ({ ...current, [key]: enabled }));
+    if (key === "reel") setReelEnabled(enabled);
+    if (key === "videoShowcase" && !enabled && videoType === "none") setVideoUrl(videoUrl);
+  };
+
+  const openSectionDialog = (key: SectionKey) => {
+    setSectionError(null);
+    if (key === "overview") {
+      setOverviewDraft({ overviewTitle, desc, client, industry, year, challenge, approach, impact, compliance, tagsInput });
+    }
+    if (key === "process") {
+      const draft = withProcessIds(processSteps);
+      setProcessDraft(draft);
+      setExpandedProcessSteps(Object.fromEntries(draft.map((step) => [step.id || createDraftId(), true])));
+    }
+    setActiveDialog(key);
+  };
+
+  const closeSectionDialog = () => {
+    setActiveDialog(null);
+    setOverviewDraft(null);
+    setProcessDraft([]);
+    setSectionError(null);
+  };
+
+  const saveOverviewDraft = () => {
+    if (!overviewDraft) return;
+    setOverviewTitle(overviewDraft.overviewTitle);
+    setDesc(overviewDraft.desc);
+    setClient(overviewDraft.client);
+    setIndustry(overviewDraft.industry);
+    setYear(overviewDraft.year);
+    setChallenge(overviewDraft.challenge);
+    setApproach(overviewDraft.approach);
+    setImpact(overviewDraft.impact);
+    setCompliance(overviewDraft.compliance);
+    setTagsInput(overviewDraft.tagsInput);
+    closeSectionDialog();
+  };
+
+  const addProcessDraftStep = () => setProcessDraft((steps) => [...steps, { id: createDraftId(), phase: "", title: "", description: "" }]);
+  const updateProcessDraftStep = (id: string, key: keyof ProjectProcessStep, value: string) => setProcessDraft((steps) => steps.map((step) => step.id === id ? { ...step, [key]: value } : step));
+  const removeProcessDraftStep = (id: string) => setProcessDraft((steps) => steps.filter((step) => step.id !== id));
+  const duplicateProcessDraftStep = (id: string) => setProcessDraft((steps) => steps.flatMap((step) => step.id === id ? [step, { ...step, id: createDraftId(), title: `${step.title} Copy`.trim() }] : [step]));
+  const moveProcessDraftStep = (index: number, direction: -1 | 1) => setProcessDraft((steps) => {
+    const target = index + direction;
+    if (target < 0 || target >= steps.length) return steps;
+    const next = [...steps];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const saveProcessDraft = () => {
+    const cleaned = processDraft.filter((step) => [step.phase, step.title, step.description].some(textHasContent));
+    if (sectionVisibility.process && cleaned.length === 0) {
+      setSectionError("Add at least one process step with a phase, title, or description, or hide the Process section.");
+      return;
+    }
+    setProcessSteps(cleaned);
+    closeSectionDialog();
+  };
+
+
+  const getCategoryUsageCount = (categorySlug: string) => allProjects.filter((item) => item.cat === categorySlug).length;
+  const isReservedCategory = (category: ProjectCategory) => ["all", "uncategorized"].includes(category.slug.toLowerCase());
+
+  const openDeleteCategoryDialog = (category: ProjectCategory, event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (isReservedCategory(category)) {
+      setErrorMsg("This system category cannot be deleted.");
+      return;
+    }
+    const replacement = categories.find((item) => item.id !== category.id && !isReservedCategory(item));
+    setReplacementCategoryId(replacement?.id || "");
+    setCategoryToDelete(category);
+    setCategorySuccessMsg(null);
+  };
+
+  const closeDeleteCategoryDialog = () => {
+    if (isDeletingCategory) return;
+    setCategoryToDelete(null);
+    setReplacementCategoryId("");
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    const usageCount = getCategoryUsageCount(categoryToDelete.slug);
+    if (usageCount > 0 && !replacementCategoryId) {
+      setErrorMsg("Choose a replacement category before deleting a category that is used by projects.");
+      return;
+    }
+
+    setIsDeletingCategory(true);
+    setErrorMsg(null);
+    try {
+      const service = getWorkspaceService();
+      await service.deleteProjectCategory(categoryToDelete.id, usageCount > 0 ? { replacementCategoryId } : undefined);
+      const replacement = categories.find((item) => item.id === replacementCategoryId);
+      const nextCategories = categories.filter((item) => item.id !== categoryToDelete.id);
+      setCategories(nextCategories);
+      setAllProjects((projects) => projects.map((item) => item.cat === categoryToDelete.slug && replacement ? { ...item, cat: replacement.slug } : item));
+      if (cat === categoryToDelete.slug) {
+        setCat(replacement?.slug || nextCategories[0]?.slug || "");
+      }
+      setCategorySuccessMsg(`Deleted category “${categoryToDelete.name}”.${usageCount > 0 && replacement ? ` Reassigned ${usageCount} project${usageCount === 1 ? "" : "s"} to “${replacement.name}”.` : ""}`);
+      setCategoryToDelete(null);
+      setReplacementCategoryId("");
+    } catch (err) {
+      console.error("Failed to delete project category:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Failed to delete category. Please try again.");
+    } finally {
+      setIsDeletingCategory(false);
+    }
+  };
+
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
     setIsAddingCat(true);
@@ -337,20 +514,6 @@ function EditProjectContent({ id }: { id: string }) {
     setStats(stats.filter((_, i) => i !== index));
   };
 
-  const handleAddProcessStep = () => {
-    setProcessSteps([...processSteps, { phase: "", title: "", description: "" }]);
-  };
-
-  const handleUpdateProcessStep = (index: number, key: keyof ProjectProcessStep, value: string) => {
-    const nextSteps = [...processSteps];
-    nextSteps[index][key] = value;
-    setProcessSteps(nextSteps);
-  };
-
-  const handleRemoveProcessStep = (index: number) => {
-    setProcessSteps(processSteps.filter((_, i) => i !== index));
-  };
-
   const handleAddFeedback = () => {
     setFeedbacks([...feedbacks, { name: "", role: "", text: "" }]);
   };
@@ -384,9 +547,33 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
-    if (reelEnabled && !reelVideoUrl.trim()) {
+    if (sectionVisibility.process && !processSteps.some((step) => [step.phase, step.title, step.description].some(textHasContent))) {
+      setErrorMsg("Process section is enabled but has no meaningful steps.");
+      openSectionDialog("process");
+      return;
+    }
+
+    if (sectionVisibility.gallery && !galleryUrls.some(textHasContent)) {
+      setErrorMsg("Gallery section is enabled but has no images.");
+      openSectionDialog("gallery");
+      return;
+    }
+
+    if (sectionVisibility.impact && !stats.some((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent))) {
+      setErrorMsg("Impact section is enabled but has no key results.");
+      openSectionDialog("impact");
+      return;
+    }
+
+    if ((reelEnabled || sectionVisibility.reel) && !reelVideoUrl.trim()) {
       setErrorMsg("Project Reel requires a video URL or uploaded video when Show Reel Section is on.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      openSectionDialog("reel");
+      return;
+    }
+
+    if (sectionVisibility.videoShowcase && (videoType === "none" || !videoUrl.trim())) {
+      setErrorMsg("Video Showcase requires a provider and video URL when enabled.");
+      openSectionDialog("videoShowcase");
       return;
     }
 
@@ -418,6 +605,7 @@ function EditProjectContent({ id }: { id: string }) {
         phase: step.phase.trim(),
         title: step.title.trim(),
         description: step.description.trim(),
+        id: step.id || createDraftId(),
         icon: step.icon?.trim(),
       }))
       .filter((step) => step.phase || step.title || step.description);
@@ -474,6 +662,7 @@ function EditProjectContent({ id }: { id: string }) {
       compliance: compliance.trim(),
       process: sanitizedProcess,
       reelSection: sanitizedReelSection,
+      section_visibility: { ...sectionVisibility, reel: reelEnabled || sectionVisibility.reel },
     };
 
     try {
@@ -548,6 +737,12 @@ function EditProjectContent({ id }: { id: string }) {
         </div>
       )}
 
+      {categorySuccessMsg && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 px-4 py-2.5 rounded-md text-xs flex items-center gap-2">
+          <span className="font-semibold">Success:</span> {categorySuccessMsg}
+        </div>
+      )}
+
       {/* Main Form Layout */}
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Form Content */}
@@ -587,9 +782,25 @@ function EditProjectContent({ id }: { id: string }) {
                           <SelectItem
                             key={c.slug}
                             value={c.slug}
-                            className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]"
+                            className="hover:bg-[#1E2D47] focus:bg-[#1E2D47] pr-2"
                           >
-                            {c.name}
+                            <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                              <span className="truncate">{c.name}</span>
+                              {!isReservedCategory(c) && (
+                                <button
+                                  type="button"
+                                  aria-label={`Delete ${c.name}`}
+                                  onClick={(event) => openDeleteCategoryDialog(c, event)}
+                                  onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                  className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -808,352 +1019,21 @@ function EditProjectContent({ id }: { id: string }) {
             </div>
           </Card>
 
-          {/* Section 3: Frontend Project Page Fields */}
+          {/* Section 3: Project Detail Sections */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
-              Frontend Project Page Fields
+              Project Detail Sections
             </h2>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Overview Heading</Label>
-                <Input
-                  placeholder="e.g. Revolutionising diagnostics with AI intelligence"
-                  value={overviewTitle}
-                  onChange={(e) => setOverviewTitle(e.target.value)}
-                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">The Challenge</Label>
-                  <Textarea value={challenge} onChange={(e) => setChallenge(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">Our Approach</Label>
-                  <Textarea value={approach} onChange={(e) => setApproach(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">The Impact</Label>
-                  <Textarea value={impact} onChange={(e) => setImpact(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">Compliance / Note</Label>
-                  <Textarea value={compliance} onChange={(e) => setCompliance(e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[100px]" />
-                </div>
-              </div>
-
-              <div className="space-y-3 border-t border-[#1E2D47] pt-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-slate-300">From Discovery to Deployment Steps</Label>
-                  <Button type="button" onClick={handleAddProcessStep} size="sm" className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-[10px] h-7 cursor-pointer">
-                    Add Step
-                  </Button>
-                </div>
-                {processSteps.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No process steps added. The frontend can hide this section.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {processSteps.map((step, index) => (
-                      <div key={index} className="space-y-2 bg-[#07090F]/50 p-3 rounded border border-[#1E2D47]/40">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <Input placeholder="Phase (e.g. Phase 01 · Weeks 1–4)" value={step.phase} onChange={(e) => handleUpdateProcessStep(index, "phase", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px]" />
-                          <Input placeholder="Title" value={step.title} onChange={(e) => handleUpdateProcessStep(index, "title", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px]" />
-                        </div>
-                        <Textarea placeholder="Description" value={step.description} onChange={(e) => handleUpdateProcessStep(index, "description", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-[11px] min-h-[80px]" />
-                        <button type="button" onClick={() => handleRemoveProcessStep(index)} className="text-xs text-red-400 hover:text-red-300 cursor-pointer">Remove step</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <SectionCard title="Overview" enabled={sectionVisibility.overview} onToggle={(checked) => setSectionEnabled("overview", checked)} summary={sectionHasContent("overview", { overviewTitle, desc, challenge, approach, impact, compliance, processSteps, stats, galleryUrls, reelEnabled, reelVideoUrl, videoType, videoUrl }) ? "Overview copy and detail cards saved" : "No overview content yet"} buttonLabel="Edit Overview" onEdit={() => openSectionDialog("overview")} />
+              <SectionCard title="From Discovery to Deployment" enabled={sectionVisibility.process} onToggle={(checked) => setSectionEnabled("process", checked)} summary={`${processSteps.filter((step) => [step.phase, step.title, step.description].some(textHasContent)).length} process steps saved`} buttonLabel="Edit Process" onEdit={() => openSectionDialog("process")} />
+              <SectionCard title="Impact / Key Results" enabled={sectionVisibility.impact} onToggle={(checked) => setSectionEnabled("impact", checked)} summary={`${stats.filter((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent)).length} result cards saved`} buttonLabel="Edit Impact" onEdit={() => openSectionDialog("impact")} />
+              <SectionCard title="Gallery" enabled={sectionVisibility.gallery} onToggle={(checked) => setSectionEnabled("gallery", checked)} summary={`${galleryUrls.filter(Boolean).length} gallery images saved`} buttonLabel="Edit Gallery" onEdit={() => openSectionDialog("gallery")} />
+              <SectionCard title="Project Reel" enabled={sectionVisibility.reel || reelEnabled} onToggle={(checked) => setSectionEnabled("reel", checked)} summary={reelVideoUrl ? "Reel video configured" : "No reel video yet"} buttonLabel="Edit Reel" onEdit={() => openSectionDialog("reel")} />
+              <SectionCard title="Video Showcase" enabled={sectionVisibility.videoShowcase} onToggle={(checked) => setSectionEnabled("videoShowcase", checked)} summary={videoType !== "none" && videoUrl ? `${videoType} video configured` : "No showcase video yet"} buttonLabel="Edit Video" onEdit={() => openSectionDialog("videoShowcase")} />
+              <SectionCard title="Related Projects" enabled={sectionVisibility.relatedProjects} onToggle={(checked) => setSectionEnabled("relatedProjects", checked)} summary="Related project selection is not configured in this backend yet" buttonLabel="Edit Related" onEdit={() => openSectionDialog("relatedProjects")} />
             </div>
-          </Card>
-
-          {/* Section 3: Metadata & Assets */}
-          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
-            <div className="flex items-center justify-between border-b border-[#1E2D47] pb-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] ">
-                Tags & Gallery
-              </h2>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  id="gallery-upload"
-                  className="hidden"
-                  onChange={handleGalleryUpload}
-                  disabled={isUploadingGallery}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => document.getElementById('gallery-upload')?.click()}
-                  disabled={isUploadingGallery}
-                  className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-[10px] h-7 flex items-center gap-1 cursor-pointer"
-                >
-                  {isUploadingGallery ? (
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : (
-                    <Upload className="h-3 w-3" />
-                  )}
-                  Upload Gallery Images
-                </Button>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Tags (Comma-separated)</Label>
-                <Input
-                  placeholder="Next.js, Sanity CMS, Stripe"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  className="border-[#1E2D47] bg-[#07090F] text-white text-xs"
-                />
-              </div>
-
-              {/* Gallery Image Previews */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-300">Gallery Images</Label>
-                {galleryUrls.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {galleryUrls.map((url, i) => (
-                      <div key={i} className="relative group aspect-video rounded-md overflow-hidden border border-[#1E2D47]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGalleryImage(i)}
-                          className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md"
-                          title="Remove image"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 italic">No gallery images yet. Upload some above.</p>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Project Reel Section */}
-          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
-            <div className="flex flex-col gap-3 border-b border-[#1E2D47] pb-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
-                <Video className="h-4 w-4 text-[#818CF8]" />
-                Project Reel
-              </h2>
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={reelEnabled}
-                  onChange={(e) => setReelEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded border-[#1E2D47] bg-[#07090F] accent-[#0EA5E9]"
-                />
-                Show Reel Section
-              </label>
-            </div>
-
-            {!reelEnabled ? (
-              <p className="text-xs text-slate-500 italic">
-                Reel is disabled. The public project page will render no reel wrapper or blank space.
-              </p>
-            ) : (
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-300">Reel Title</Label>
-                    <Input value={reelTitle} onChange={(e) => setReelTitle(e.target.value)} placeholder="Behind the Project" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-300">Reel Video URL <span className="text-red-500">*</span></Label>
-                    <Input value={reelVideoUrl} onChange={(e) => setReelVideoUrl(e.target.value)} placeholder="Paste MP4/WebM URL or upload below" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
-                  </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label className="text-xs font-semibold text-slate-300">Reel Description</Label>
-                    <Textarea value={reelDescription} onChange={(e) => setReelDescription(e.target.value)} placeholder="Optional short description shown beside the vertical reel." className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[90px]" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)] gap-5 items-start">
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id="reel-video-upload" className="hidden" onChange={handleReelVideoUpload} disabled={isUploadingReelVideo} />
-                      <Button type="button" onClick={() => document.getElementById('reel-video-upload')?.click()} disabled={isUploadingReelVideo} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer">
-                        {isUploadingReelVideo ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3.5 w-3.5" />}
-                        {reelVideoUrl ? "Replace Reel Video" : "Upload Reel Video"}
-                      </Button>
-                      {reelVideoUrl && <Button type="button" onClick={() => setReelVideoUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs h-9 flex items-center gap-1.5 cursor-pointer"><Trash2 className="h-3.5 w-3.5" />Remove Video</Button>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-300">Reel Poster / Thumbnail</Label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Input value={reelPosterUrl} onChange={(e) => setReelPosterUrl(e.target.value)} placeholder="Optional poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono flex-1" />
-                        <input type="file" accept="image/*" id="reel-poster-upload" className="hidden" onChange={handleReelPosterUpload} disabled={isUploadingReelPoster} />
-                        <Button type="button" onClick={() => document.getElementById('reel-poster-upload')?.click()} disabled={isUploadingReelPoster} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer">
-                          {isUploadingReelPoster ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3.5 w-3.5" />}
-                          Upload Poster
-                        </Button>
-                        {reelPosterUrl && <Button type="button" onClick={() => setReelPosterUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs h-9 cursor-pointer">Remove</Button>}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
-                      {[{label: "Autoplay", checked: reelAutoplay, set: setReelAutoplay}, {label: "Muted", checked: reelAutoplay ? true : reelMuted, set: setReelMuted, disabled: reelAutoplay}, {label: "Loop", checked: reelLoop, set: setReelLoop}].map((item) => (
-                        <label key={item.label} className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-                          <input type="checkbox" checked={item.checked} disabled={item.disabled} onChange={(e) => item.set(e.target.checked)} className="h-4 w-4 rounded border-[#1E2D47] bg-[#07090F] accent-[#0EA5E9] disabled:opacity-60" />
-                          {item.label}
-                        </label>
-                      ))}
-                    </div>
-                    {reelAutoplay && <p className="text-[10px] text-slate-400">Muted is forced on when autoplay is enabled so the frontend never autoplays with sound.</p>}
-                  </div>
-
-                  <div className="mx-auto w-full max-w-[280px]">
-                    <Label className="mb-2 block text-xs font-semibold text-slate-300">9:16 Preview</Label>
-                    <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black shadow-lg shadow-black/20">
-                      {reelVideoUrl ? <video src={reelVideoUrl} poster={reelPosterUrl || undefined} controls muted={reelAutoplay || reelMuted} loop={reelLoop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-slate-500">Upload or paste a reel video to preview.</div>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Section 4: Video Showcase */}
-          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3 flex items-center gap-2">
-              <Video className="h-4 w-4 text-[#818CF8]" />
-              Video Showcase
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Video Provider</Label>
-                <Select
-                  value={videoType}
-                  onValueChange={(val) => {
-                    const safeVal = val ?? "none";
-                    setVideoType(safeVal);
-                    if (safeVal === "none") setVideoUrl("");
-                  }}
-                >
-                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white w-full">
-                    <SelectValue placeholder="No Video" />
-                  </SelectTrigger>
-                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
-                    <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">No Video</SelectItem>
-                    <SelectItem value="youtube" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">YouTube</SelectItem>
-                    <SelectItem value="vimeo" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Vimeo</SelectItem>
-                    <SelectItem value="upload" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">Upload Video File</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                {videoType !== "none" && (
-                  <>
-                    <Label className="text-xs font-semibold text-slate-300">
-                      {videoType === "upload" ? "Video File" : "Video URL"}
-                    </Label>
-
-                    {/* Video preview when URL is set */}
-                    {videoUrl ? (
-                      <div className="space-y-2">
-                        <div className="relative w-full rounded-md overflow-hidden border border-[#1E2D47] bg-black" style={{ paddingBottom: '56.25%' }}>
-                          {videoType === "youtube" && (() => {
-                            const ytMatch = videoUrl.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
-                            const ytId = ytMatch?.[1];
-                            return ytId ? (
-                              <iframe
-                                src={`https://www.youtube.com/embed/${ytId}`}
-                                className="absolute inset-0 w-full h-full"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                              />
-                            ) : <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">Invalid YouTube URL</div>;
-                          })()}
-                          {videoType === "vimeo" && (() => {
-                            const vmMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
-                            const vmId = vmMatch?.[1];
-                            return vmId ? (
-                              <iframe
-                                src={`https://player.vimeo.com/video/${vmId}`}
-                                className="absolute inset-0 w-full h-full"
-                                allow="autoplay; fullscreen; picture-in-picture"
-                                allowFullScreen
-                              />
-                            ) : <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">Invalid Vimeo URL</div>;
-                          })()}
-                          {videoType === "upload" && (
-                            <video
-                              src={videoUrl}
-                              controls
-                              className="absolute inset-0 w-full h-full object-contain"
-                            />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setVideoUrl("")}
-                          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Remove video
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder={
-                            videoType === "youtube"
-                              ? "https://www.youtube.com/watch?v=..."
-                              : videoType === "vimeo"
-                                ? "https://vimeo.com/..."
-                                : "Click Upload Video to select a file"
-                          }
-                          value={videoUrl}
-                          onChange={(e) => setVideoUrl(e.target.value)}
-                          className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono flex-1"
-                          readOnly={videoType === "upload"}
-                        />
-                        {videoType === "upload" && (
-                          <div className="relative shrink-0">
-                            <input
-                              type="file"
-                              accept="video/*"
-                              id="video-upload"
-                              className="hidden"
-                              onChange={handleVideoUpload}
-                              disabled={isUploadingVideo}
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => document.getElementById('video-upload')?.click()}
-                              disabled={isUploadingVideo}
-                              className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer"
-                            >
-                              {isUploadingVideo ? (
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                              ) : (
-                                <Upload className="h-3.5 w-3.5" />
-                              )}
-                              Upload Video
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <p className="text-[11px] text-slate-500">Disabled sections keep their saved content but are omitted from the public project payload.</p>
           </Card>
         </div>
 
@@ -1336,6 +1216,210 @@ function EditProjectContent({ id }: { id: string }) {
           </Card>
         </div>
       </form>
+
+
+
+      <PortfolioSectionDialog
+        open={Boolean(categoryToDelete)}
+        title="Delete Portfolio Category"
+        description={categoryToDelete ? (getCategoryUsageCount(categoryToDelete.slug) > 0 ? `${getCategoryUsageCount(categoryToDelete.slug)} project${getCategoryUsageCount(categoryToDelete.slug) === 1 ? " is" : "s are"} using this category. Choose how to handle them before deleting.` : `Delete the category ‘${categoryToDelete.name}’? This action cannot be undone.`) : "Confirm category deletion."}
+        onCancel={closeDeleteCategoryDialog}
+        onSave={handleDeleteCategory}
+        saveLabel={isDeletingCategory ? "Deleting..." : "Delete Category"}
+      >
+        {categoryToDelete && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+              <p className="font-semibold">Delete “{categoryToDelete.name}”?</p>
+              <p className="mt-1 text-xs text-red-200/80">This action cannot be undone.</p>
+            </div>
+
+            {getCategoryUsageCount(categoryToDelete.slug) > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-slate-300">Move affected projects to</Label>
+                <Select value={replacementCategoryId} onValueChange={(value) => setReplacementCategoryId(value || "")}>
+                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
+                    <SelectValue placeholder="Select replacement category" />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    {categories.filter((item) => item.id !== categoryToDelete.id && !isReservedCategory(item)).map((item) => (
+                      <SelectItem key={item.id} value={item.id} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-slate-500">Projects use the category slug in their <code>cat</code> field, so they must be reassigned before deletion.</p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">No projects currently use this category.</p>
+            )}
+          </div>
+        )}
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog
+        open={activeDialog === "overview"}
+        title="Edit Overview Section"
+        description="Edit the long-form overview, project details, and overview cards without crowding the main form."
+        onCancel={closeSectionDialog}
+        onSave={saveOverviewDraft}
+        saveLabel="Save Overview"
+      >
+        {overviewDraft && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(["overviewTitle", "client", "industry", "year", "tagsInput"] as const).map((field) => (
+              <div key={field} className={field === "overviewTitle" || field === "tagsInput" ? "space-y-1.5 md:col-span-2" : "space-y-1.5"}>
+                <Label className="text-xs font-semibold text-slate-300">{{ overviewTitle: "Section Title", client: "Client", industry: "Industry", year: "Year", tagsInput: "Services / Technologies / Tags" }[field]}</Label>
+                <Input value={overviewDraft[field]} onChange={(e) => setOverviewDraft({ ...overviewDraft, [field]: e.target.value })} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+              </div>
+            ))}
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold text-slate-300">Main Description</Label>
+              <Textarea value={overviewDraft.desc} onChange={(e) => setOverviewDraft({ ...overviewDraft, desc: e.target.value })} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[180px] leading-relaxed" />
+            </div>
+            {(["challenge", "approach", "impact", "compliance"] as const).map((field) => (
+              <div key={field} className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">{{ challenge: "The Challenge", approach: "Our Approach", impact: "The Impact", compliance: "Compliance / Note" }[field]}</Label>
+                <Textarea value={overviewDraft[field]} onChange={(e) => setOverviewDraft({ ...overviewDraft, [field]: e.target.value })} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[140px]" />
+              </div>
+            ))}
+          </div>
+        )}
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "process"} title="Edit From Discovery to Deployment" description="Add, duplicate, reorder, and edit process steps. Empty drafts are ignored on save." onCancel={closeSectionDialog} onSave={saveProcessDraft} saveLabel="Save Process">
+        {sectionError && <p className="rounded border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{sectionError}</p>}
+        <div className="flex justify-end"><Button type="button" onClick={addProcessDraftStep} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-200 text-xs">Add Step</Button></div>
+        <div className="space-y-3">
+          {processDraft.length === 0 ? <p className="text-xs text-slate-500 italic">No process steps yet.</p> : processDraft.map((step, index) => {
+            const stepId = step.id || String(index);
+            const expanded = expandedProcessSteps[stepId] ?? true;
+            return (
+              <div key={stepId} className="rounded-lg border border-[#1E2D47] bg-[#07090F]/60 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <button type="button" onClick={() => setExpandedProcessSteps((current) => ({ ...current, [stepId]: !expanded }))} className="text-left text-xs font-semibold text-white">Step {index + 1} — {step.title || step.phase || "Untitled"}</button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button type="button" size="sm" onClick={() => moveProcessDraftStep(index, -1)} disabled={index === 0} className="h-7 bg-[#141B2D] text-[10px]"><ArrowUp className="h-3 w-3" />Up</Button>
+                    <Button type="button" size="sm" onClick={() => moveProcessDraftStep(index, 1)} disabled={index === processDraft.length - 1} className="h-7 bg-[#141B2D] text-[10px]"><ArrowDown className="h-3 w-3" />Down</Button>
+                    <Button type="button" size="sm" onClick={() => duplicateProcessDraftStep(stepId)} className="h-7 bg-[#141B2D] text-[10px]"><Copy className="h-3 w-3" />Duplicate</Button>
+                    <Button type="button" size="sm" onClick={() => removeProcessDraftStep(stepId)} className="h-7 bg-red-600 text-[10px]">Delete</Button>
+                  </div>
+                </div>
+                {expanded && <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input placeholder="Phase (e.g. Phase 01 · Weeks 1–4)" value={step.phase} onChange={(e) => updateProcessDraftStep(stepId, "phase", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                  <Input placeholder="Title" value={step.title} onChange={(e) => updateProcessDraftStep(stepId, "title", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                  <Textarea placeholder="Description" value={step.description} onChange={(e) => updateProcessDraftStep(stepId, "description", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[140px] md:col-span-2" />
+                  <Input placeholder="Icon / metadata (optional)" value={step.icon || ""} onChange={(e) => updateProcessDraftStep(stepId, "icon", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2" />
+                </div>}
+              </div>
+            );
+          })}
+        </div>
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "impact"} title="Edit Impact / Key Results" description="Manage public impact metric cards." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+        <div className="flex justify-end"><Button type="button" onClick={handleAddStat} className="bg-[#1E2D47] text-xs">Add Result</Button></div>
+        <div className="space-y-3">{stats.map((stat, index) => <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded border border-[#1E2D47] bg-[#07090F]/50 p-3"><Input placeholder="Value" value={stat.num} onChange={(e) => handleUpdateStat(index, "num", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" /><Input placeholder="Label" value={stat.label} onChange={(e) => handleUpdateStat(index, "label", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" /><Input placeholder="Before" value={stat.before || ""} onChange={(e) => handleUpdateStat(index, "before", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" /><Input placeholder="After" value={stat.after || ""} onChange={(e) => handleUpdateStat(index, "after", e.target.value)} className="border-[#1E2D47] bg-[#07090F] text-white text-xs" /><Button type="button" onClick={() => handleRemoveStat(index)} className="bg-red-600 text-xs md:col-span-2">Remove</Button></div>)}</div>
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "gallery"} title="Edit Gallery Section" description="Upload and arrange project gallery media." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+        <input type="file" accept="image/*" multiple id="gallery-upload-dialog" className="hidden" onChange={handleGalleryUpload} disabled={isUploadingGallery} />
+        <Button type="button" onClick={() => document.getElementById('gallery-upload-dialog')?.click()} disabled={isUploadingGallery} className="bg-[#1E2D47] text-xs"><Upload className="h-3 w-3" />Upload Gallery Images</Button>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{galleryUrls.map((url, i) => <div key={`${url}-${i}`} className="relative aspect-video overflow-hidden rounded border border-[#1E2D47]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Gallery ${i + 1}`} className="h-full w-full object-cover" /><button type="button" onClick={() => handleRemoveGalleryImage(i)} className="absolute right-1 top-1 rounded bg-red-600 p-1 text-white"><Trash2 className="h-3 w-3" /></button></div>)}</div>
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "reel"} title="Edit Project Reel" description="Add a reel by pasting a direct video link or uploading a video file. One source is required only when the section is shown." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-5 items-start">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input value={reelTitle} onChange={(e) => setReelTitle(e.target.value)} placeholder="Reel Title" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+              <Input value={reelPosterUrl} onChange={(e) => setReelPosterUrl(e.target.value)} placeholder="Poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+              <Textarea value={reelDescription} onChange={(e) => setReelDescription(e.target.value)} placeholder="Description" className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2 min-h-[120px]" />
+            </div>
+
+            <div className="rounded-lg border border-[#1E2D47] bg-[#07090F]/50 p-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Reel Video Link</Label>
+                <Input value={reelVideoUrl} onChange={(e) => setReelVideoUrl(e.target.value)} placeholder="Paste a direct MP4, WebM, MOV, or M4V URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                <p className="text-[10px] text-slate-500">Use a direct video URL here, or upload a video below. Either option fills the same reel source used on the portfolio page.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id="reel-video-upload-dialog" className="hidden" onChange={handleReelVideoUpload} disabled={isUploadingReelVideo} />
+                <Button type="button" onClick={() => document.getElementById('reel-video-upload-dialog')?.click()} disabled={isUploadingReelVideo} className="bg-[#1E2D47] text-xs">
+                  {isUploadingReelVideo ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3 w-3" />}
+                  {reelVideoUrl ? "Replace with Upload" : "Upload Reel Video"}
+                </Button>
+                {reelVideoUrl && <Button type="button" onClick={() => setReelVideoUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs"><Trash2 className="h-3 w-3" />Clear Reel Source</Button>}
+                <input type="file" accept="image/*" id="reel-poster-upload-dialog" className="hidden" onChange={handleReelPosterUpload} disabled={isUploadingReelPoster} />
+                <Button type="button" onClick={() => document.getElementById('reel-poster-upload-dialog')?.click()} disabled={isUploadingReelPoster} className="bg-[#1E2D47] text-xs">Upload Poster</Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
+              {[{label: "Autoplay", checked: reelAutoplay, set: setReelAutoplay}, {label: "Muted", checked: reelAutoplay ? true : reelMuted, set: setReelMuted, disabled: reelAutoplay}, {label: "Loop", checked: reelLoop, set: setReelLoop}].map((item) => <label key={item.label} className="inline-flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={item.checked} disabled={item.disabled} onChange={(e) => item.set(e.target.checked)} className="h-4 w-4 accent-[#0EA5E9]" />{item.label}</label>)}
+            </div>
+          </div>
+
+          <div className="mx-auto w-full max-w-[280px]">
+            <Label className="mb-2 block text-xs font-semibold text-slate-300">Reel Preview</Label>
+            <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black">
+              {reelVideoUrl ? <video src={reelVideoUrl} poster={reelPosterUrl || undefined} controls muted={reelAutoplay || reelMuted} loop={reelLoop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500">Paste a reel link or upload a video to preview.</div>}
+            </div>
+          </div>
+        </div>
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4"><Select value={videoType} onValueChange={(val) => { const safeVal = val ?? "none"; setVideoType(safeVal); if (safeVal === "none") setVideoUrl(""); }}><SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="No Video" /></SelectTrigger><SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white"><SelectItem value="none">No Video</SelectItem><SelectItem value="youtube">YouTube</SelectItem><SelectItem value="vimeo">Vimeo</SelectItem><SelectItem value="upload">Upload Video File</SelectItem></SelectContent></Select><Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" readOnly={videoType === "upload"} className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2" /></div><input type="file" accept="video/*" id="video-upload-dialog" className="hidden" onChange={handleVideoUpload} disabled={isUploadingVideo} />{videoType === "upload" && <Button type="button" onClick={() => document.getElementById('video-upload-dialog')?.click()} disabled={isUploadingVideo} className="bg-[#1E2D47] text-xs">Upload Video</Button>}
+      </PortfolioSectionDialog>
+
+      <PortfolioSectionDialog open={activeDialog === "relatedProjects"} title="Edit Related Projects" description="This project schema does not currently include related-project selections; the visibility setting is saved for forward compatibility." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done"><p className="text-xs text-slate-400">No related project picker is available in the existing API, so this dialog preserves the section toggle without adding new routes or backend modules.</p></PortfolioSectionDialog>
+
     </div>
+  );
+}
+
+function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }: { title: string; enabled: boolean; summary: string; buttonLabel: string; onToggle: (checked: boolean) => void; onEdit: () => void }) {
+  const inputId = `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return (
+    <div className="portfolio-section-card rounded-lg border border-[#1E2D47] bg-[#07090F]/50 p-4 space-y-3">
+      <div className="portfolio-section-card-header flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <p className="portfolio-section-card-summary mt-1 text-xs text-slate-500">{summary}</p>
+        </div>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${enabled ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-500/10 text-slate-400"}`}><Eye className="h-3 w-3" />{enabled ? "Shown" : "Hidden"}</span>
+      </div>
+      <div className="portfolio-section-card-actions flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label htmlFor={inputId} className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+          <input id={inputId} type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} className="h-4 w-4 rounded border-[#1E2D47] bg-[#07090F] accent-[#0EA5E9]" />
+          Show {title} Section
+        </label>
+        <Button type="button" onClick={onEdit} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-200 text-xs h-8 cursor-pointer">{buttonLabel}</Button>
+      </div>
+    </div>
+  );
+}
+
+function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
+      <DialogContent className="portfolio-section-dialog flex h-[min(80vh,900px)] w-[min(80vw,1200px)] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none max-sm:h-[90vh] max-sm:w-[94vw]" showCloseButton>
+        <DialogHeader className="portfolio-section-dialog-header sticky top-0 z-10 border-b border-[#1E2D47] bg-[#0F1629] px-5 py-4 pr-12">
+          <DialogTitle className="text-base font-bold text-white">{title}</DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">{description}</DialogDescription>
+        </DialogHeader>
+        <div className="portfolio-section-dialog-body min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+          {children}
+        </div>
+        <DialogFooter className="portfolio-section-dialog-footer sticky bottom-0 border-t border-[#1E2D47] bg-[#0F1629] px-5 py-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onCancel} className="border-[#1E2D47] text-slate-300 hover:bg-[#1E2D47]">Cancel</Button>
+          <Button type="button" onClick={onSave} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white">{saveLabel}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -17,6 +17,7 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  DeleteProjectCategoryOptions,
   PMProject,
   PMProjectDetail,
   PMTaskSummary,
@@ -775,6 +776,27 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
+
+  private getMissingProjectColumn(error: unknown): keyof Project | null {
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error || "");
+    const match = message.match(/Could not find the '([^']+)' column of 'projects'/i);
+    if (!match) return null;
+    const column = match[1] as keyof Project;
+    return column;
+  }
+
+  private stripMissingProjectColumn<T extends Partial<Project>>(data: T, column: keyof Project): T {
+    if (!(column in data)) return data;
+    const { [column]: _removed, ...rest } = data;
+    void _removed;
+    console.warn(`Supabase projects schema is missing the '${String(column)}' column; retrying save without that field. Apply supabase_schema.sql to persist this field.`);
+    return rest as T;
+  }
+
   async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
     await this.assertCanMutateContent();
     this.assertProjectPayload(data);
@@ -796,16 +818,25 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: newProject, error } = await this.client
-        .from("projects")
-        .insert(data)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = data;
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: newProject, error } = await this.client
+          .from("projects")
+          .insert(payload)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return newProject as Project;
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return newProject as Project;
     } catch (e) {
       console.error("Error inserting project in Supabase:", e);
       if (e instanceof Error) throw e;
@@ -886,17 +917,26 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: updated, error } = await this.client
-        .from("projects")
-        .update(data)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = data;
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: updated, error } = await this.client
+          .from("projects")
+          .update(payload)
+          .eq("id", id)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return updated as Project;
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return updated as Project;
     } catch (e) {
       console.error("Error updating project in Supabase:", e);
       if (e instanceof Error) throw e;
@@ -955,9 +995,59 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
-  async deleteProjectCategory(id: string): Promise<void> {
+  async deleteProjectCategory(id: string, options: DeleteProjectCategoryOptions = {}): Promise<void> {
     await this.assertCanMutateContent();
     try {
+      const { data: category, error: categoryError } = await this.client
+        .from("project_categories")
+        .select("id, name, slug")
+        .eq("id", id)
+        .single();
+
+      if (categoryError || !category) {
+        throw new Error("Category not found.");
+      }
+
+      const reservedSlugs = new Set(["all", "uncategorized"]);
+      if (reservedSlugs.has(category.slug)) {
+        throw new Error("This system category cannot be deleted.");
+      }
+
+      let replacementSlug: string | null = null;
+      if (options.replacementCategoryId) {
+        const { data: replacement, error: replacementError } = await this.client
+          .from("project_categories")
+          .select("id, slug")
+          .eq("id", options.replacementCategoryId)
+          .neq("id", id)
+          .single();
+
+        if (replacementError || !replacement) {
+          throw new Error("Replacement category not found.");
+        }
+        replacementSlug = replacement.slug;
+      }
+
+      const { count, error: countError } = await this.client
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("cat", category.slug);
+
+      if (countError) throw new Error(countError.message || JSON.stringify(countError));
+      const usageCount = count || 0;
+
+      if (usageCount > 0 && !replacementSlug) {
+        throw new Error(`${usageCount} project${usageCount === 1 ? " is" : "s are"} using this category. Choose a replacement before deleting.`);
+      }
+
+      if (usageCount > 0 && replacementSlug) {
+        const { error: updateError } = await this.client
+          .from("projects")
+          .update({ cat: replacementSlug })
+          .eq("cat", category.slug);
+        if (updateError) throw new Error("Failed to reassign projects before deleting the category.");
+      }
+
       const { error } = await this.client
         .from("project_categories")
         .delete()

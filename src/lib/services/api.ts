@@ -152,6 +152,7 @@ export interface ProjectStat {
 }
 
 export interface ProjectProcessStep {
+  id?: string;
   phase: string;
   title: string;
   description: string;
@@ -162,6 +163,16 @@ export interface ProjectFeedback {
   name: string;
   role: string;
   text: string;
+}
+
+export interface ProjectSectionVisibility {
+  overview: boolean;
+  process: boolean;
+  impact: boolean;
+  gallery: boolean;
+  reel: boolean;
+  videoShowcase: boolean;
+  relatedProjects: boolean;
 }
 
 export interface ProjectReelSection {
@@ -180,6 +191,10 @@ export interface ProjectCategory {
   name: string;
   slug: string;
   created_at?: string;
+}
+
+export interface DeleteProjectCategoryOptions {
+  replacementCategoryId?: string;
 }
 
 
@@ -261,6 +276,7 @@ export interface Project {
   compliance?: string;
   process?: ProjectProcessStep[];
   reelSection?: ProjectReelSection;
+  section_visibility?: Partial<ProjectSectionVisibility>;
 }
 
 // -------------------------------------------------------------
@@ -395,7 +411,7 @@ export interface IWorkspaceService {
   deleteProject(id: string): Promise<void>;
   getProjectCategories(): Promise<ProjectCategory[]>;
   createProjectCategory(name: string): Promise<ProjectCategory>;
-  deleteProjectCategory(id: string): Promise<void>;
+  deleteProjectCategory(id: string, options?: DeleteProjectCategoryOptions): Promise<void>;
   uploadProjectFile(file: File): Promise<string>;
 
   // Website content
