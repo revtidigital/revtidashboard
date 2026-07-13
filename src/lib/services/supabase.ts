@@ -775,6 +775,27 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
+
+  private getMissingProjectColumn(error: unknown): keyof Project | null {
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error || "");
+    const match = message.match(/Could not find the '([^']+)' column of 'projects'/i);
+    if (!match) return null;
+    const column = match[1] as keyof Project;
+    return column;
+  }
+
+  private stripMissingProjectColumn<T extends Partial<Project>>(data: T, column: keyof Project): T {
+    if (!(column in data)) return data;
+    const { [column]: _removed, ...rest } = data;
+    void _removed;
+    console.warn(`Supabase projects schema is missing the '${String(column)}' column; retrying save without that field. Apply supabase_schema.sql to persist this field.`);
+    return rest as T;
+  }
+
   async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
     await this.assertCanMutateContent();
     this.assertProjectPayload(data);
@@ -796,16 +817,25 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: newProject, error } = await this.client
-        .from("projects")
-        .insert(data)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = data;
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: newProject, error } = await this.client
+          .from("projects")
+          .insert(payload)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return newProject as Project;
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return newProject as Project;
     } catch (e) {
       console.error("Error inserting project in Supabase:", e);
       if (e instanceof Error) throw e;
@@ -886,17 +916,26 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: updated, error } = await this.client
-        .from("projects")
-        .update(data)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = data;
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: updated, error } = await this.client
+          .from("projects")
+          .update(payload)
+          .eq("id", id)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return updated as Project;
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return updated as Project;
     } catch (e) {
       console.error("Error updating project in Supabase:", e);
       if (e instanceof Error) throw e;
