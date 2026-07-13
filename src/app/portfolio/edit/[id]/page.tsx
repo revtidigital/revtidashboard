@@ -26,6 +26,7 @@ import {
   ProjectCategory,
   ProjectProcessStep,
   ProjectReelSection,
+  ProjectReelItem,
   ProjectSectionVisibility,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
@@ -56,21 +57,62 @@ const DEFAULT_SECTION_VISIBILITY: ProjectSectionVisibility = {
 
 type SectionKey = keyof ProjectSectionVisibility;
 type OverviewDraft = { overviewTitle: string; desc: string; client: string; industry: string; year: string; challenge: string; approach: string; impact: string; compliance: string; tagsInput: string; };
+type ReelUploadState = Record<string, { videoUploading: boolean; posterUploading: boolean }>;
 
 const textHasContent = (value?: string | null) => Boolean(value?.trim());
 const createDraftId = () => `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const withProcessIds = (steps: ProjectProcessStep[]) => steps.map((step) => ({ ...step, id: step.id || createDraftId() }));
 
+const createReelItem = (overrides: Partial<ProjectReelItem> = {}): ProjectReelItem => ({
+  id: overrides.id || createDraftId(),
+  enabled: overrides.enabled ?? true,
+  title: overrides.title || "",
+  description: overrides.description || "",
+  videoUrl: overrides.videoUrl || "",
+  posterUrl: overrides.posterUrl || "",
+  autoplay: overrides.autoplay ?? false,
+  muted: overrides.autoplay ? true : (overrides.muted ?? true),
+  loop: overrides.loop ?? true,
+  displayOrder: overrides.displayOrder ?? 0,
+});
+
+const normalizeReelItems = (items: ProjectReelItem[]) => items
+  .map((item, index) => createReelItem({ ...item, displayOrder: Number.isInteger(item.displayOrder) ? item.displayOrder : index }))
+  .sort((a, b) => a.displayOrder - b.displayOrder)
+  .map((item, index) => ({ ...item, displayOrder: index, muted: item.autoplay ? true : item.muted }));
+
+const normalizeReelSectionForForm = (reel?: ProjectReelSection): ProjectReelSection => {
+  if (!reel) return { enabled: false, title: "", description: "", items: [] };
+  const legacyItem = reel.videoUrl ? createReelItem({
+    id: `legacy-reel-${reel.videoUrl}`,
+    enabled: reel.enabled,
+    title: reel.title,
+    description: reel.description,
+    videoUrl: reel.videoUrl,
+    posterUrl: reel.posterUrl,
+    autoplay: reel.autoplay,
+    muted: reel.muted,
+    loop: reel.loop,
+    displayOrder: 0,
+  }) : null;
+  return {
+    enabled: reel.enabled === true,
+    title: reel.title || "",
+    description: reel.description || "",
+    items: normalizeReelItems(Array.isArray(reel.items) && reel.items.length > 0 ? reel.items : legacyItem ? [legacyItem] : []),
+  };
+};
+
 function sectionHasContent(key: SectionKey, data: {
   overviewTitle: string; desc: string; challenge: string; approach: string; impact: string; compliance: string;
-  processSteps: ProjectProcessStep[]; stats: ProjectStat[]; galleryUrls: string[]; reelEnabled: boolean; reelVideoUrl: string; videoType: string; videoUrl: string;
+  processSteps: ProjectProcessStep[]; stats: ProjectStat[]; galleryUrls: string[]; reelSection: ProjectReelSection; videoType: string; videoUrl: string;
 }) {
   switch (key) {
     case "overview": return [data.overviewTitle, data.desc, data.challenge, data.approach, data.impact, data.compliance].some(textHasContent);
     case "process": return data.processSteps.some((step) => [step.phase, step.title, step.description].some(textHasContent));
     case "impact": return data.stats.some((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent));
     case "gallery": return data.galleryUrls.some(textHasContent);
-    case "reel": return data.reelEnabled && textHasContent(data.reelVideoUrl);
+    case "reel": return data.reelSection.enabled && data.reelSection.items.some((item) => item.enabled && textHasContent(item.videoUrl));
     case "videoShowcase": return data.videoType !== "none" && textHasContent(data.videoUrl);
     case "relatedProjects": return false;
   }
@@ -152,14 +194,10 @@ function EditProjectContent({ id }: { id: string }) {
   const [processDraft, setProcessDraft] = useState<ProjectProcessStep[]>([]);
   const [expandedProcessSteps, setExpandedProcessSteps] = useState<Record<string, boolean>>({});
   const [sectionError, setSectionError] = useState<string | null>(null);
-  const [reelEnabled, setReelEnabled] = useState(false);
-  const [reelTitle, setReelTitle] = useState("");
-  const [reelDescription, setReelDescription] = useState("");
-  const [reelVideoUrl, setReelVideoUrl] = useState("");
-  const [reelPosterUrl, setReelPosterUrl] = useState("");
-  const [reelAutoplay, setReelAutoplay] = useState(false);
-  const [reelMuted, setReelMuted] = useState(true);
-  const [reelLoop, setReelLoop] = useState(true);
+  const [reelSection, setReelSection] = useState<ProjectReelSection>(() => normalizeReelSectionForForm());
+  const [reelDraft, setReelDraft] = useState<ProjectReelSection | null>(null);
+  const [reelUploadState, setReelUploadState] = useState<ReelUploadState>({});
+  const [reelValidationErrors, setReelValidationErrors] = useState<Record<string, string>>({});
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -171,8 +209,7 @@ function EditProjectContent({ id }: { id: string }) {
   const [isAddingCat, setIsAddingCat] = useState(false);
   const [isUploadingThumb, setIsUploadingThumb] = useState(false);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
-  const [isUploadingReelVideo, setIsUploadingReelVideo] = useState(false);
-  const [isUploadingReelPoster, setIsUploadingReelPoster] = useState(false);
+
 
   const [videoType, setVideoType] = useState("none");
   const [videoUrl, setVideoUrl] = useState("");
@@ -248,16 +285,9 @@ function EditProjectContent({ id }: { id: string }) {
           setCompliance(found.compliance || "");
           const loadedProcess = withProcessIds(found.process || []);
           setProcessSteps(loadedProcess);
-          const reel = found.reelSection;
-          setReelEnabled(reel?.enabled === true);
-          setReelTitle(reel?.title || "");
-          setReelDescription(reel?.description || "");
-          setReelVideoUrl(reel?.videoUrl || "");
-          setReelPosterUrl(reel?.posterUrl || "");
-          setReelAutoplay(reel?.autoplay ?? false);
-          setReelMuted(reel?.muted ?? true);
-          setReelLoop(reel?.loop ?? true);
-          setSectionVisibility(normalizeVisibility(found, { overviewTitle: found.overview_title || "", desc: found.desc || "", challenge: found.challenge || "", approach: found.approach || "", impact: found.impact || "", compliance: found.compliance || "", processSteps: loadedProcess, stats: found.stats || [], galleryUrls: found.gallery || [], reelEnabled: reel?.enabled === true, reelVideoUrl: reel?.videoUrl || "", videoType: found.video_type || "none", videoUrl: found.video_url || "" }));
+          const normalizedReel = normalizeReelSectionForForm(found.reelSection);
+          setReelSection(normalizedReel);
+          setSectionVisibility(normalizeVisibility(found, { overviewTitle: found.overview_title || "", desc: found.desc || "", challenge: found.challenge || "", approach: found.approach || "", impact: found.impact || "", compliance: found.compliance || "", processSteps: loadedProcess, stats: found.stats || [], galleryUrls: found.gallery || [], reelSection: normalizedReel, videoType: found.video_type || "none", videoUrl: found.video_url || "" }));
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -275,7 +305,7 @@ function EditProjectContent({ id }: { id: string }) {
 
   const setSectionEnabled = (key: SectionKey, enabled: boolean) => {
     setSectionVisibility((current) => ({ ...current, [key]: enabled }));
-    if (key === "reel") setReelEnabled(enabled);
+    if (key === "reel") setReelSection((current) => ({ ...current, enabled }));
     if (key === "videoShowcase" && !enabled && videoType === "none") setVideoUrl(videoUrl);
   };
 
@@ -289,6 +319,11 @@ function EditProjectContent({ id }: { id: string }) {
       setProcessDraft(draft);
       setExpandedProcessSteps(Object.fromEntries(draft.map((step) => [step.id || createDraftId(), true])));
     }
+    if (key === "reel") {
+      setReelDraft(normalizeReelSectionForForm(reelSection));
+      setReelValidationErrors({});
+      setReelUploadState({});
+    }
     setActiveDialog(key);
   };
 
@@ -296,6 +331,9 @@ function EditProjectContent({ id }: { id: string }) {
     setActiveDialog(null);
     setOverviewDraft(null);
     setProcessDraft([]);
+    setReelDraft(null);
+    setReelValidationErrors({});
+    setReelUploadState({});
     setSectionError(null);
   };
 
@@ -335,6 +373,115 @@ function EditProjectContent({ id }: { id: string }) {
     closeSectionDialog();
   };
 
+
+
+  const updateReelDraft = (updater: (draft: ProjectReelSection) => ProjectReelSection) => {
+    setReelDraft((current) => current ? updater(current) : current);
+  };
+
+  const updateReelDraftItem = (itemId: string, updater: (item: ProjectReelItem) => ProjectReelItem) => {
+    updateReelDraft((draft) => ({
+      ...draft,
+      items: normalizeReelItems(draft.items.map((item) => item.id === itemId ? updater(item) : item)),
+    }));
+  };
+
+  const addReelDraftItem = () => updateReelDraft((draft) => ({
+    ...draft,
+    items: normalizeReelItems([...draft.items, createReelItem({ displayOrder: draft.items.length })]),
+  }));
+
+  const duplicateReelDraftItem = (itemId: string) => updateReelDraft((draft) => {
+    const index = draft.items.findIndex((item) => item.id === itemId);
+    if (index === -1) return draft;
+    const duplicate = createReelItem({ ...draft.items[index], id: createDraftId(), title: `${draft.items[index].title || "Reel"} Copy` });
+    const items = [...draft.items];
+    items.splice(index + 1, 0, duplicate);
+    return { ...draft, items: normalizeReelItems(items) };
+  });
+
+  const removeReelDraftItem = (itemId: string) => updateReelDraft((draft) => {
+    const item = draft.items.find((current) => current.id === itemId);
+    if (item && [item.title, item.description, item.videoUrl, item.posterUrl].some(textHasContent) && !window.confirm("Delete this Reel? This action cannot be undone.")) {
+      return draft;
+    }
+    return { ...draft, items: normalizeReelItems(draft.items.filter((current) => current.id !== itemId)) };
+  });
+
+  const moveReelDraftItem = (index: number, direction: -1 | 1) => updateReelDraft((draft) => {
+    const target = index + direction;
+    if (target < 0 || target >= draft.items.length) return draft;
+    const items = [...draft.items];
+    [items[index], items[target]] = [items[target], items[index]];
+    return { ...draft, items: normalizeReelItems(items.map((item, itemIndex) => ({ ...item, displayOrder: itemIndex }))) };
+  });
+
+  const reelUploadsActive = Object.values(reelUploadState).some((state) => state.videoUploading || state.posterUploading);
+
+  const validateReelSection = (section: ProjectReelSection) => {
+    const errors: Record<string, string> = {};
+    if (section.enabled && !section.items.some((item) => item.enabled && textHasContent(item.videoUrl))) {
+      errors.__section = "Show Reel Section is on. Add at least one enabled Reel with a video URL, or hide the section.";
+    }
+    for (const item of section.items) {
+      if (item.enabled && !textHasContent(item.videoUrl)) {
+        errors[item.id] = "Enabled Reel items require a video URL or uploaded video.";
+      }
+    }
+    return errors;
+  };
+
+  const saveReelDraft = () => {
+    if (!reelDraft) return;
+    const normalized = { ...reelDraft, items: normalizeReelItems(reelDraft.items) };
+    const errors = validateReelSection(normalized);
+    if (Object.keys(errors).length > 0) {
+      setReelValidationErrors(errors);
+      return;
+    }
+    setReelSection(normalized);
+    setSectionVisibility((current) => ({ ...current, reel: normalized.enabled }));
+    closeSectionDialog();
+  };
+
+  const handleReelItemVideoUpload = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!isSupportedVideoFile(file)) {
+      alert("Please upload an MP4, WebM, MOV, or M4V video file for the reel.");
+      e.target.value = "";
+      return;
+    }
+    setReelUploadState((current) => ({ ...current, [itemId]: { ...current[itemId], videoUploading: true } }));
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      updateReelDraftItem(itemId, (item) => ({ ...item, videoUrl: publicUrl }));
+    } catch (err) {
+      console.error("Failed to upload reel video:", err);
+      alert("Reel video upload failed.");
+    } finally {
+      setReelUploadState((current) => ({ ...current, [itemId]: { ...current[itemId], videoUploading: false } }));
+      e.target.value = "";
+    }
+  };
+
+  const handleReelItemPosterUpload = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReelUploadState((current) => ({ ...current, [itemId]: { ...current[itemId], posterUploading: true } }));
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      updateReelDraftItem(itemId, (item) => ({ ...item, posterUrl: publicUrl }));
+    } catch (err) {
+      console.error("Failed to upload reel poster:", err);
+      alert("Reel poster upload failed.");
+    } finally {
+      setReelUploadState((current) => ({ ...current, [itemId]: { ...current[itemId], posterUploading: false } }));
+      e.target.value = "";
+    }
+  };
 
   const getCategoryUsageCount = (categorySlug: string) => allProjects.filter((item) => item.cat === categorySlug).length;
   const isReservedCategory = (category: ProjectCategory) => ["all", "uncategorized"].includes(category.slug.toLowerCase());
@@ -443,46 +590,9 @@ function EditProjectContent({ id }: { id: string }) {
     setGalleryUrls(prev => prev.filter((_, i) => i !== index));
   };
 
-  const isSupportedVideoFile = (file: File) => ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"].includes(file.type);
-
-  const handleReelVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!isSupportedVideoFile(file)) {
-      alert("Please upload an MP4, WebM, MOV, or M4V video file for the reel.");
-      e.target.value = "";
-      return;
-    }
-    setIsUploadingReelVideo(true);
-    try {
-      const service = getWorkspaceService();
-      const publicUrl = await service.uploadProjectFile(file);
-      setReelVideoUrl(publicUrl);
-    } catch (err) {
-      console.error("Failed to upload reel video:", err);
-      alert("Reel video upload failed.");
-    } finally {
-      setIsUploadingReelVideo(false);
-      e.target.value = "";
-    }
-  };
-
-  const handleReelPosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploadingReelPoster(true);
-    try {
-      const service = getWorkspaceService();
-      const publicUrl = await service.uploadProjectFile(file);
-      setReelPosterUrl(publicUrl);
-    } catch (err) {
-      console.error("Failed to upload reel poster:", err);
-      alert("Reel poster upload failed.");
-    } finally {
-      setIsUploadingReelPoster(false);
-      e.target.value = "";
-    }
-  };
+  function isSupportedVideoFile(file: File) {
+    return ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"].includes(file.type);
+  }
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -565,9 +675,11 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
-    if ((reelEnabled || sectionVisibility.reel) && !reelVideoUrl.trim()) {
-      setErrorMsg("Project Reel requires a video URL or uploaded video when Show Reel Section is on.");
+    const reelErrors = validateReelSection(reelSection);
+    if ((sectionVisibility.reel || reelSection.enabled) && Object.keys(reelErrors).length > 0) {
+      setErrorMsg(reelErrors.__section || "Fix the enabled Reel items before saving.");
       openSectionDialog("reel");
+      setReelValidationErrors(reelErrors);
       return;
     }
 
@@ -577,7 +689,7 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
-    if (isUploadingThumb || isUploadingGallery || isUploadingVideo || isUploadingReelVideo || isUploadingReelPoster) {
+    if (isUploadingThumb || isUploadingGallery || isUploadingVideo || reelUploadsActive) {
       setErrorMsg("Please wait for all uploads to finish before saving.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -611,14 +723,21 @@ function EditProjectContent({ id }: { id: string }) {
       .filter((step) => step.phase || step.title || step.description);
     const sanitizedFeedbacks = feedbacks.filter((f) => f.name.trim() || f.text.trim());
     const sanitizedReelSection: ProjectReelSection = {
-      enabled: reelEnabled,
-      title: reelTitle.trim() || undefined,
-      description: reelDescription.trim() || undefined,
-      videoUrl: reelVideoUrl.trim() || undefined,
-      posterUrl: reelPosterUrl.trim() || undefined,
-      autoplay: reelAutoplay,
-      muted: reelAutoplay ? true : reelMuted,
-      loop: reelLoop,
+      enabled: reelSection.enabled,
+      title: reelSection.title?.trim() || undefined,
+      description: reelSection.description?.trim() || undefined,
+      items: normalizeReelItems(reelSection.items)
+        .map((item) => ({
+          ...item,
+          title: item.title?.trim() || undefined,
+          description: item.description?.trim() || undefined,
+          videoUrl: item.videoUrl.trim(),
+          posterUrl: item.posterUrl?.trim() || undefined,
+          autoplay: item.autoplay ?? false,
+          muted: item.autoplay ? true : (item.muted ?? true),
+          loop: item.loop ?? true,
+        }))
+        .filter((item) => item.videoUrl || item.title || item.description || item.posterUrl),
     };
 
     // Sequence parsing
@@ -662,7 +781,7 @@ function EditProjectContent({ id }: { id: string }) {
       compliance: compliance.trim(),
       process: sanitizedProcess,
       reelSection: sanitizedReelSection,
-      section_visibility: { ...sectionVisibility, reel: reelEnabled || sectionVisibility.reel },
+      section_visibility: { ...sectionVisibility, reel: reelSection.enabled || sectionVisibility.reel },
     };
 
     try {
@@ -1025,11 +1144,11 @@ function EditProjectContent({ id }: { id: string }) {
               Project Detail Sections
             </h2>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <SectionCard title="Overview" enabled={sectionVisibility.overview} onToggle={(checked) => setSectionEnabled("overview", checked)} summary={sectionHasContent("overview", { overviewTitle, desc, challenge, approach, impact, compliance, processSteps, stats, galleryUrls, reelEnabled, reelVideoUrl, videoType, videoUrl }) ? "Overview copy and detail cards saved" : "No overview content yet"} buttonLabel="Edit Overview" onEdit={() => openSectionDialog("overview")} />
+              <SectionCard title="Overview" enabled={sectionVisibility.overview} onToggle={(checked) => setSectionEnabled("overview", checked)} summary={sectionHasContent("overview", { overviewTitle, desc, challenge, approach, impact, compliance, processSteps, stats, galleryUrls, reelSection, videoType, videoUrl }) ? "Overview copy and detail cards saved" : "No overview content yet"} buttonLabel="Edit Overview" onEdit={() => openSectionDialog("overview")} />
               <SectionCard title="From Discovery to Deployment" enabled={sectionVisibility.process} onToggle={(checked) => setSectionEnabled("process", checked)} summary={`${processSteps.filter((step) => [step.phase, step.title, step.description].some(textHasContent)).length} process steps saved`} buttonLabel="Edit Process" onEdit={() => openSectionDialog("process")} />
               <SectionCard title="Impact / Key Results" enabled={sectionVisibility.impact} onToggle={(checked) => setSectionEnabled("impact", checked)} summary={`${stats.filter((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent)).length} result cards saved`} buttonLabel="Edit Impact" onEdit={() => openSectionDialog("impact")} />
               <SectionCard title="Gallery" enabled={sectionVisibility.gallery} onToggle={(checked) => setSectionEnabled("gallery", checked)} summary={`${galleryUrls.filter(Boolean).length} gallery images saved`} buttonLabel="Edit Gallery" onEdit={() => openSectionDialog("gallery")} />
-              <SectionCard title="Project Reel" enabled={sectionVisibility.reel || reelEnabled} onToggle={(checked) => setSectionEnabled("reel", checked)} summary={reelVideoUrl ? "Reel video configured" : "No reel video yet"} buttonLabel="Edit Reel" onEdit={() => openSectionDialog("reel")} />
+              <SectionCard title="Project Reel" enabled={sectionVisibility.reel || reelSection.enabled} onToggle={(checked) => setSectionEnabled("reel", checked)} summary={`${reelSection.items.filter((item) => item.videoUrl).length} reel${reelSection.items.filter((item) => item.videoUrl).length === 1 ? "" : "s"} configured`} buttonLabel="Edit Reels" onEdit={() => openSectionDialog("reel")} />
               <SectionCard title="Video Showcase" enabled={sectionVisibility.videoShowcase} onToggle={(checked) => setSectionEnabled("videoShowcase", checked)} summary={videoType !== "none" && videoUrl ? `${videoType} video configured` : "No showcase video yet"} buttonLabel="Edit Video" onEdit={() => openSectionDialog("videoShowcase")} />
               <SectionCard title="Related Projects" enabled={sectionVisibility.relatedProjects} onToggle={(checked) => setSectionEnabled("relatedProjects", checked)} summary="Related project selection is not configured in this backend yet" buttonLabel="Edit Related" onEdit={() => openSectionDialog("relatedProjects")} />
             </div>
@@ -1331,45 +1450,78 @@ function EditProjectContent({ id }: { id: string }) {
                     <img src={url} alt={`Gallery ${i + 1}`} className="h-full w-full object-cover" /><button type="button" onClick={() => handleRemoveGalleryImage(i)} className="absolute right-1 top-1 rounded bg-red-600 p-1 text-white"><Trash2 className="h-3 w-3" /></button></div>)}</div>
       </PortfolioSectionDialog>
 
-      <PortfolioSectionDialog open={activeDialog === "reel"} title="Edit Project Reel" description="Add a reel by pasting a direct video link or uploading a video file. One source is required only when the section is shown." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-5 items-start">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input value={reelTitle} onChange={(e) => setReelTitle(e.target.value)} placeholder="Reel Title" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
-              <Input value={reelPosterUrl} onChange={(e) => setReelPosterUrl(e.target.value)} placeholder="Poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
-              <Textarea value={reelDescription} onChange={(e) => setReelDescription(e.target.value)} placeholder="Description" className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2 min-h-[120px]" />
-            </div>
-
+      <PortfolioSectionDialog open={activeDialog === "reel"} title="Edit Project Reels" description="Manage multiple project reels. Save Reels applies the draft to the main Portfolio form; Cancel discards draft changes." onCancel={closeSectionDialog} onSave={saveReelDraft} saveLabel="Save Reels">
+        {reelDraft && (
+          <div className="space-y-5">
+            {reelValidationErrors.__section && <p className="rounded border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{reelValidationErrors.__section}</p>}
             <div className="rounded-lg border border-[#1E2D47] bg-[#07090F]/50 p-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Reel Video Link</Label>
-                <Input value={reelVideoUrl} onChange={(e) => setReelVideoUrl(e.target.value)} placeholder="Paste a direct MP4, WebM, MOV, or M4V URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
-                <p className="text-[10px] text-slate-500">Use a direct video URL here, or upload a video below. Either option fills the same reel source used on the portfolio page.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id="reel-video-upload-dialog" className="hidden" onChange={handleReelVideoUpload} disabled={isUploadingReelVideo} />
-                <Button type="button" onClick={() => document.getElementById('reel-video-upload-dialog')?.click()} disabled={isUploadingReelVideo} className="bg-[#1E2D47] text-xs">
-                  {isUploadingReelVideo ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3 w-3" />}
-                  {reelVideoUrl ? "Replace with Upload" : "Upload Reel Video"}
-                </Button>
-                {reelVideoUrl && <Button type="button" onClick={() => setReelVideoUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs"><Trash2 className="h-3 w-3" />Clear Reel Source</Button>}
-                <input type="file" accept="image/*" id="reel-poster-upload-dialog" className="hidden" onChange={handleReelPosterUpload} disabled={isUploadingReelPoster} />
-                <Button type="button" onClick={() => document.getElementById('reel-poster-upload-dialog')?.click()} disabled={isUploadingReelPoster} className="bg-[#1E2D47] text-xs">Upload Poster</Button>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300">
+                <input type="checkbox" checked={reelDraft.enabled} onChange={(event) => updateReelDraft((draft) => ({ ...draft, enabled: event.target.checked }))} className="h-4 w-4 accent-[#0EA5E9]" />
+                Show Reel Section
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input value={reelDraft.title || ""} onChange={(event) => updateReelDraft((draft) => ({ ...draft, title: event.target.value }))} placeholder="Section title, e.g. Project Reels" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                <Input value={reelDraft.description || ""} onChange={(event) => updateReelDraft((draft) => ({ ...draft, description: event.target.value }))} placeholder="Section description" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
               </div>
             </div>
-
-            <div className="flex flex-wrap gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
-              {[{label: "Autoplay", checked: reelAutoplay, set: setReelAutoplay}, {label: "Muted", checked: reelAutoplay ? true : reelMuted, set: setReelMuted, disabled: reelAutoplay}, {label: "Loop", checked: reelLoop, set: setReelLoop}].map((item) => <label key={item.label} className="inline-flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={item.checked} disabled={item.disabled} onChange={(e) => item.set(e.target.checked)} className="h-4 w-4 accent-[#0EA5E9]" />{item.label}</label>)}
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-white">Reels</h3>
+              <Button type="button" onClick={addReelDraftItem} className="bg-[#1E2D47] text-xs">Add Reel</Button>
             </div>
+            {reelDraft.items.length === 0 ? <p className="text-xs text-slate-500 italic">No reels yet. Add a Reel to upload or paste a video link.</p> : (
+              <div className="space-y-4">
+                {reelDraft.items.map((item, index) => {
+                  const uploadState = reelUploadState[item.id] || { videoUploading: false, posterUploading: false };
+                  return (
+                    <div key={item.id} className="rounded-lg border border-[#1E2D47] bg-[#07090F]/50 p-4 space-y-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300">
+                          <input type="checkbox" checked={item.enabled} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, enabled: event.target.checked }))} className="h-4 w-4 accent-[#0EA5E9]" />
+                          Reel {index + 1} {item.title ? `— ${item.title}` : ""}
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Button type="button" size="sm" onClick={() => moveReelDraftItem(index, -1)} disabled={index === 0} className="h-7 bg-[#141B2D] text-[10px]"><ArrowUp className="h-3 w-3" />Up</Button>
+                          <Button type="button" size="sm" onClick={() => moveReelDraftItem(index, 1)} disabled={index === reelDraft.items.length - 1} className="h-7 bg-[#141B2D] text-[10px]"><ArrowDown className="h-3 w-3" />Down</Button>
+                          <Button type="button" size="sm" onClick={() => duplicateReelDraftItem(item.id)} className="h-7 bg-[#141B2D] text-[10px]"><Copy className="h-3 w-3" />Duplicate</Button>
+                          <Button type="button" size="sm" onClick={() => removeReelDraftItem(item.id)} className="h-7 bg-red-600 text-[10px]">Delete</Button>
+                        </div>
+                      </div>
+                      {reelValidationErrors[item.id] && <p className="rounded border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{reelValidationErrors[item.id]}</p>}
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px] gap-4">
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Input value={item.title || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, title: event.target.value }))} placeholder="Reel title" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                            <Input value={item.posterUrl || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, posterUrl: event.target.value }))} placeholder="Poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                            <Textarea value={item.description || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, description: event.target.value }))} placeholder="Description" className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2 min-h-[80px]" />
+                          </div>
+                          <Input value={item.videoUrl || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, videoUrl: event.target.value }))} placeholder="Paste a direct MP4, WebM, MOV, or M4V URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                          <div className="flex flex-wrap gap-2">
+                            <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id={`reel-video-upload-${item.id}`} className="hidden" onChange={(event) => handleReelItemVideoUpload(item.id, event)} disabled={uploadState.videoUploading} />
+                            <Button type="button" onClick={() => document.getElementById(`reel-video-upload-${item.id}`)?.click()} disabled={uploadState.videoUploading} className="bg-[#1E2D47] text-xs">{uploadState.videoUploading ? "Uploading..." : item.videoUrl ? "Replace Video" : "Upload Video"}</Button>
+                            {item.videoUrl && <Button type="button" onClick={() => updateReelDraftItem(item.id, (current) => ({ ...current, videoUrl: "" }))} className="bg-red-600 hover:bg-red-700 text-white text-xs"><Trash2 className="h-3 w-3" />Clear Video</Button>}
+                            <input type="file" accept="image/*" id={`reel-poster-upload-${item.id}`} className="hidden" onChange={(event) => handleReelItemPosterUpload(item.id, event)} disabled={uploadState.posterUploading} />
+                            <Button type="button" onClick={() => document.getElementById(`reel-poster-upload-${item.id}`)?.click()} disabled={uploadState.posterUploading} className="bg-[#1E2D47] text-xs">{uploadState.posterUploading ? "Uploading..." : "Upload Poster"}</Button>
+                          </div>
+                          <div className="flex flex-wrap gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
+                            {[{label: "Autoplay", checked: item.autoplay ?? false, key: "autoplay" as const}, {label: "Muted", checked: item.autoplay ? true : (item.muted ?? true), key: "muted" as const, disabled: item.autoplay}, {label: "Loop", checked: item.loop ?? true, key: "loop" as const}].map((control) => (
+                              <label key={control.label} className="inline-flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={control.checked} disabled={control.disabled} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, [control.key]: event.target.checked, muted: control.key === "autoplay" && event.target.checked ? true : current.muted }))} className="h-4 w-4 accent-[#0EA5E9]" />{control.label}</label>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mx-auto w-full max-w-[220px]">
+                          <Label className="mb-2 block text-xs font-semibold text-slate-300">Preview</Label>
+                          <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black">
+                            {item.videoUrl ? <video src={item.videoUrl} poster={item.posterUrl || undefined} controls muted={item.autoplay || item.muted} loop={item.loop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500">Paste a reel link or upload a video.</div>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          <div className="mx-auto w-full max-w-[280px]">
-            <Label className="mb-2 block text-xs font-semibold text-slate-300">Reel Preview</Label>
-            <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black">
-              {reelVideoUrl ? <video src={reelVideoUrl} poster={reelPosterUrl || undefined} controls muted={reelAutoplay || reelMuted} loop={reelLoop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500">Paste a reel link or upload a video to preview.</div>}
-            </div>
-          </div>
-        </div>
+        )}
       </PortfolioSectionDialog>
 
       <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">

@@ -175,10 +175,25 @@ export interface ProjectSectionVisibility {
   relatedProjects: boolean;
 }
 
+export interface ProjectReelItem {
+  id: string;
+  enabled: boolean;
+  title?: string;
+  description?: string;
+  videoUrl: string;
+  posterUrl?: string;
+  autoplay?: boolean;
+  muted?: boolean;
+  loop?: boolean;
+  displayOrder: number;
+}
+
 export interface ProjectReelSection {
   enabled: boolean;
   title?: string;
   description?: string;
+  items: ProjectReelItem[];
+  /** Legacy single-reel fields are accepted while old rows are normalized at runtime. */
   videoUrl?: string;
   posterUrl?: string;
   autoplay?: boolean;

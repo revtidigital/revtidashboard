@@ -58,22 +58,54 @@ const normalizeSectionVisibility = (project: Project) => ({
   process: sectionEnabled(project, "process", hasProcessContent(project)),
   impact: sectionEnabled(project, "impact", hasImpactContent(project)),
   gallery: sectionEnabled(project, "gallery", hasGalleryContent(project)),
-  reel: sectionEnabled(project, "reel", Boolean(project.reelSection?.enabled && project.reelSection.videoUrl)),
+  reel: sectionEnabled(project, "reel", normalizeReelItems(project.reelSection).some((item) => item.enabled && hasText(item.videoUrl))),
   videoShowcase: sectionEnabled(project, "videoShowcase", Boolean(hasVideoShowcaseContent(project))),
   relatedProjects: sectionEnabled(project, "relatedProjects", false),
 });
 
+const normalizeReelItems = (reel: Project["reelSection"]) => {
+  const rawItems = Array.isArray(reel?.items) && reel.items.length > 0
+    ? reel.items
+    : reel?.videoUrl
+      ? [{
+        id: `legacy-reel-${reel.videoUrl}`,
+        enabled: reel.enabled === true,
+        title: reel.title,
+        description: reel.description,
+        videoUrl: reel.videoUrl,
+        posterUrl: reel.posterUrl,
+        autoplay: reel.autoplay,
+        muted: reel.muted,
+        loop: reel.loop,
+        displayOrder: 0,
+      }]
+      : [];
+
+  return rawItems
+    .map((item, index) => ({
+      id: item.id || `reel-${index}`,
+      enabled: item.enabled === true,
+      title: item.title || undefined,
+      description: item.description || undefined,
+      videoUrl: item.videoUrl || "",
+      posterUrl: item.posterUrl || undefined,
+      autoplay: item.autoplay ?? false,
+      muted: item.autoplay ? true : (item.muted ?? true),
+      loop: item.loop ?? true,
+      displayOrder: Number.isInteger(item.displayOrder) && item.displayOrder >= 0 ? item.displayOrder : index,
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((item, index) => ({ ...item, displayOrder: index }));
+};
+
 const normalizeReelSection = (project: Project) => {
   const reel = project.reelSection;
+  const items = normalizeReelItems(reel);
   return {
     enabled: reel?.enabled === true && normalizeSectionVisibility(project).reel,
     title: reel?.title || undefined,
     description: reel?.description || undefined,
-    videoUrl: reel?.videoUrl || undefined,
-    posterUrl: reel?.posterUrl || undefined,
-    autoplay: reel?.autoplay ?? false,
-    muted: reel?.autoplay ? true : (reel?.muted ?? true),
-    loop: reel?.loop ?? true,
+    items,
   };
 };
 
@@ -168,7 +200,7 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
     }) : undefined,
     process: visibility.process ? (project.process || []).filter((step) => step.phase || step.title || step.description) : undefined,
     brandShowcase: visibility.gallery ? (project.gallery || []).filter(Boolean) : undefined,
-    reelSection: visibility.reel && project.reelSection?.enabled && project.reelSection.videoUrl
+    reelSection: visibility.reel && normalizeReelSection(project).enabled && normalizeReelSection(project).items.some((item) => item.enabled && item.videoUrl)
       ? normalizeReelSection(project)
       : undefined,
     impactResults: visibility.impact ? (project.stats || [])
