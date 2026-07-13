@@ -61,6 +61,31 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
+  private assertBoolean(value: unknown, field: string): void {
+    if (typeof value !== "boolean") {
+      throw new Error(`Invalid project field: ${field} must be a boolean.`);
+    }
+  }
+
+  private assertSupportedProjectVideoUrl(value: string, field: string): void {
+    this.assertValidOptionalUrl(value, field);
+    const cleanUrl = value.split("?")[0].toLowerCase();
+    if (!cleanUrl.match(/\.(mp4|webm|mov|m4v)$/)) {
+      throw new Error(`Invalid project field: ${field} must be an MP4, WebM, MOV, or M4V video URL.`);
+    }
+  }
+
+  private assertProjectUploadFile(file: File): void {
+    const maxBytes = 50 * 1024 * 1024;
+    const allowedTypes = ["image/", "video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+    if (file.size > maxBytes) {
+      throw new Error("Project uploads must be 50MB or smaller.");
+    }
+    if (!allowedTypes.some((type) => file.type.startsWith(type) || file.type === type)) {
+      throw new Error("Unsupported project upload type. Use images, MP4, WebM, MOV, or M4V files.");
+    }
+  }
+
   // -------------------------------------------------------------
   // Auth & Profile
   // -------------------------------------------------------------
@@ -734,6 +759,26 @@ export class SupabaseService implements IWorkspaceService {
     if (data.sequence !== undefined && data.sequence !== null && (!Number.isInteger(data.sequence) || data.sequence <= 0)) {
       throw new Error("Invalid project field: sequence must be a positive integer.");
     }
+    if (data.reelSection !== undefined) {
+      const reel = data.reelSection;
+      this.assertBoolean(reel.enabled, "reelSection.enabled");
+      if (reel.title !== undefined && typeof reel.title !== "string") throw new Error("Invalid project field: reelSection.title must be a string.");
+      if (reel.description !== undefined && typeof reel.description !== "string") throw new Error("Invalid project field: reelSection.description must be a string.");
+      if (reel.posterUrl) this.assertValidOptionalUrl(reel.posterUrl, "reelSection.posterUrl");
+      if (reel.videoUrl) this.assertSupportedProjectVideoUrl(reel.videoUrl, "reelSection.videoUrl");
+      if (reel.enabled && !reel.videoUrl?.trim()) {
+        throw new Error("Project Reel requires a video URL when enabled.");
+      }
+      if (reel.autoplay !== undefined) this.assertBoolean(reel.autoplay, "reelSection.autoplay");
+      if (reel.muted !== undefined) this.assertBoolean(reel.muted, "reelSection.muted");
+      if (reel.loop !== undefined) this.assertBoolean(reel.loop, "reelSection.loop");
+    }
+    if (data.section_visibility !== undefined) {
+      const keys = ["overview", "process", "impact", "gallery", "reel", "videoShowcase", "testimonials", "relatedProjects"] as const;
+      for (const key of keys) {
+        this.assertBoolean(data.section_visibility[key], `section_visibility.${key}`);
+      }
+    }
   }
 
   async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
@@ -1067,6 +1112,7 @@ export class SupabaseService implements IWorkspaceService {
   }
 
   async uploadProjectFile(file: File): Promise<string> {
+    this.assertProjectUploadFile(file);
     const fileExt = file.name.split(".").pop();
     const filePath = `projects/${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
 

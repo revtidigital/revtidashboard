@@ -152,16 +152,39 @@ export interface ProjectStat {
 }
 
 export interface ProjectProcessStep {
+  id?: string;
   phase: string;
   title: string;
   description: string;
   icon?: string;
 }
 
+export interface ProjectSectionVisibility {
+  overview: boolean;
+  process: boolean;
+  impact: boolean;
+  gallery: boolean;
+  reel: boolean;
+  videoShowcase: boolean;
+  testimonials: boolean;
+  relatedProjects: boolean;
+}
+
 export interface ProjectFeedback {
   name: string;
   role: string;
   text: string;
+}
+
+export interface ProjectReelSection {
+  enabled: boolean;
+  title?: string;
+  description?: string;
+  videoUrl?: string;
+  posterUrl?: string;
+  autoplay?: boolean;
+  muted?: boolean;
+  loop?: boolean;
 }
 
 export interface ProjectCategory {
@@ -249,6 +272,8 @@ export interface Project {
   impact?: string;
   compliance?: string;
   process?: ProjectProcessStep[];
+  reelSection?: ProjectReelSection;
+  section_visibility?: ProjectSectionVisibility;
 }
 
 // -------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { getWorkspaceService, Project, ProjectCategory, JsonRecord } from "@/lib/services/api";
+import { getWorkspaceService, Project, ProjectCategory, JsonRecord, ProjectSectionVisibility } from "@/lib/services/api";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +39,37 @@ const getCorsHeaders = (requestOrigin: string | null): CorsHeaders => {
 
 const normalizeArray = <T>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
 
+const hasText = (value?: string | null) => Boolean(value?.trim());
+
+const normalizeSectionVisibility = (project: Project): ProjectSectionVisibility => {
+  const visibility = project.section_visibility;
+  return {
+    overview: typeof visibility?.overview === "boolean" ? visibility.overview : [project.overview_title, project.headline, project.desc, project.challenge, project.approach, project.impact, project.compliance].some(hasText),
+    process: typeof visibility?.process === "boolean" ? visibility.process : normalizeArray(project.process).some((step) => hasText(step.phase) || hasText(step.title) || hasText(step.description)),
+    impact: typeof visibility?.impact === "boolean" ? visibility.impact : normalizeArray(project.stats).some((stat) => hasText(stat.num) || hasText(stat.label) || hasText(stat.before) || hasText(stat.after)),
+    gallery: typeof visibility?.gallery === "boolean" ? visibility.gallery : normalizeArray(project.gallery).some(hasText),
+    reel: typeof visibility?.reel === "boolean" ? visibility.reel : project.reelSection?.enabled === true,
+    videoShowcase: typeof visibility?.videoShowcase === "boolean" ? visibility.videoShowcase : Boolean(project.video_type && project.video_type !== "none" && hasText(project.video_url)),
+    testimonials: typeof visibility?.testimonials === "boolean" ? visibility.testimonials : normalizeArray(project.feedback).some((item) => hasText(item.name) || hasText(item.role) || hasText(item.text)),
+    relatedProjects: typeof visibility?.relatedProjects === "boolean" ? visibility.relatedProjects : false,
+  };
+};
+
+const normalizeReelSection = (project: Project) => {
+  const reel = project.reelSection;
+  const visibility = normalizeSectionVisibility(project);
+  return {
+    enabled: visibility.reel && reel?.enabled === true,
+    title: reel?.title || undefined,
+    description: reel?.description || undefined,
+    videoUrl: reel?.videoUrl || undefined,
+    posterUrl: reel?.posterUrl || undefined,
+    autoplay: reel?.autoplay ?? false,
+    muted: reel?.autoplay ? true : (reel?.muted ?? true),
+    loop: reel?.loop ?? true,
+  };
+};
+
 const toPublicProject = (project: Project) => ({
   id: project.id,
   cat: project.cat,
@@ -68,6 +99,8 @@ const toPublicProject = (project: Project) => ({
   impact: project.impact,
   compliance: project.compliance,
   process: normalizeArray(project.process),
+  section_visibility: normalizeSectionVisibility(project),
+  reelSection: normalizeReelSection(project),
 });
 
 const toPublicCategory = (category: ProjectCategory) => ({
@@ -92,20 +125,17 @@ const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
   return trim(project.industry) || category?.name || project.cat;
 };
 
-const getRelatedProjects = (project: Project, projects: Project[]) => {
-  const tags = new Set(project.tags || []);
+const getRelatedProjects = () => null;
 
-  return null;
-};
-
-const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
+const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]) => {
   const industry = getCategoryName(project, categories);
-  const overviewCards = [
+  const visibility = normalizeSectionVisibility(project);
+  const overviewCards = visibility.overview ? [
     { title: "The Challenge", body: trim(project.challenge) },
     { title: "Our Approach", body: trim(project.approach) },
     { title: "The Impact", body: trim(project.impact) },
     { title: "Compliance First", body: trim(project.compliance) },
-  ].filter((item) => item.body);
+  ].filter((item) => item.body) : [];
 
   return compactObject({
     ...toPublicProject(project),
@@ -122,25 +152,28 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
       description: trim(project.tagline) || trim(project.shortDesc),
       image: trim(project.thumb),
     }),
-    overview: compactObject({
+    overview: visibility.overview ? compactObject({
       title: trim(project.overview_title) || trim(project.headline),
       body: trim(project.desc),
       cards: overviewCards,
-    }),
-    process: (project.process || []).filter((step) => step.phase || step.title || step.description),
-    brandShowcase: (project.gallery || []).filter(Boolean),
-    impactResults: (project.stats || [])
+    }) : undefined,
+    process: visibility.process ? (project.process || []).filter((step) => step.phase || step.title || step.description) : undefined,
+    brandShowcase: visibility.gallery ? (project.gallery || []).filter(Boolean) : undefined,
+    reelSection: visibility.reel && project.reelSection?.enabled && project.reelSection.videoUrl
+      ? normalizeReelSection(project)
+      : undefined,
+    impactResults: visibility.impact ? (project.stats || [])
       .filter((stat) => stat.num || stat.label || stat.before || stat.after)
       .map((stat) => compactObject({
         label: trim(stat.label),
         value: trim(stat.num),
         before: trim(stat.before),
         after: trim(stat.after),
-      })),
-    video: project.video_type && project.video_type !== "none" && project.video_url
+      })) : undefined,
+    video: visibility.videoShowcase && project.video_type && project.video_type !== "none" && project.video_url
       ? { type: project.video_type, url: project.video_url }
       : undefined,
-    relatedWork: getRelatedProjects(project, projects),
+    relatedWork: getRelatedProjects(),
   });
 };
 
@@ -173,7 +206,7 @@ export async function GET(request: Request) {
     const publishedProjects = projects.filter((project) => project.status !== "draft");
     const publicProjects = publishedProjects.map(toPublicProject);
     const publicCategories = categories.map(toPublicCategory);
-    const legacyProjects = publishedProjects.map((project) => toLegacyFrontendProject(project, categories, publishedProjects));
+    const legacyProjects = publishedProjects.map((project) => toLegacyFrontendProject(project, categories));
     const hero = siteSettings.hero_section || {};
     const contact = siteSettings.contact_section || {};
     const numbers = impactNumbers.map((item) => ({

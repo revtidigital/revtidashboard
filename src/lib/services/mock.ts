@@ -948,6 +948,14 @@ export class MockService implements IWorkspaceService {
   }
 
   async uploadProjectFile(file: File): Promise<string> {
+    const maxBytes = 50 * 1024 * 1024;
+    const allowedTypes = ["image/", "video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+    if (file.size > maxBytes) {
+      throw new Error("Project uploads must be 50MB or smaller.");
+    }
+    if (!allowedTypes.some((type) => file.type.startsWith(type) || file.type === type)) {
+      throw new Error("Unsupported project upload type. Use images, MP4, WebM, MOV, or M4V files.");
+    }
     if (typeof window !== "undefined") {
       return URL.createObjectURL(file);
     }
