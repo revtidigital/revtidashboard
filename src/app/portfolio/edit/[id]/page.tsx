@@ -22,6 +22,7 @@ import {
   ProjectFeedback,
   ProjectCategory,
   ProjectProcessStep,
+  ProjectReelSection,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -100,12 +101,22 @@ function EditProjectContent({ id }: { id: string }) {
   const [impact, setImpact] = useState("");
   const [compliance, setCompliance] = useState("");
   const [processSteps, setProcessSteps] = useState<ProjectProcessStep[]>([]);
+  const [reelEnabled, setReelEnabled] = useState(false);
+  const [reelTitle, setReelTitle] = useState("");
+  const [reelDescription, setReelDescription] = useState("");
+  const [reelVideoUrl, setReelVideoUrl] = useState("");
+  const [reelPosterUrl, setReelPosterUrl] = useState("");
+  const [reelAutoplay, setReelAutoplay] = useState(false);
+  const [reelMuted, setReelMuted] = useState(true);
+  const [reelLoop, setReelLoop] = useState(true);
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [isAddingCat, setIsAddingCat] = useState(false);
   const [isUploadingThumb, setIsUploadingThumb] = useState(false);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+  const [isUploadingReelVideo, setIsUploadingReelVideo] = useState(false);
+  const [isUploadingReelPoster, setIsUploadingReelPoster] = useState(false);
 
   const [videoType, setVideoType] = useState("none");
   const [videoUrl, setVideoUrl] = useState("");
@@ -178,6 +189,15 @@ function EditProjectContent({ id }: { id: string }) {
           setImpact(found.impact || "");
           setCompliance(found.compliance || "");
           setProcessSteps(found.process || []);
+          const reel = found.reelSection;
+          setReelEnabled(reel?.enabled === true);
+          setReelTitle(reel?.title || "");
+          setReelDescription(reel?.description || "");
+          setReelVideoUrl(reel?.videoUrl || "");
+          setReelPosterUrl(reel?.posterUrl || "");
+          setReelAutoplay(reel?.autoplay ?? false);
+          setReelMuted(reel?.muted ?? true);
+          setReelLoop(reel?.loop ?? true);
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -244,6 +264,47 @@ function EditProjectContent({ id }: { id: string }) {
 
   const handleRemoveGalleryImage = (index: number) => {
     setGalleryUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const isSupportedVideoFile = (file: File) => ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"].includes(file.type);
+
+  const handleReelVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!isSupportedVideoFile(file)) {
+      alert("Please upload an MP4, WebM, MOV, or M4V video file for the reel.");
+      e.target.value = "";
+      return;
+    }
+    setIsUploadingReelVideo(true);
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      setReelVideoUrl(publicUrl);
+    } catch (err) {
+      console.error("Failed to upload reel video:", err);
+      alert("Reel video upload failed.");
+    } finally {
+      setIsUploadingReelVideo(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleReelPosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingReelPoster(true);
+    try {
+      const service = getWorkspaceService();
+      const publicUrl = await service.uploadProjectFile(file);
+      setReelPosterUrl(publicUrl);
+    } catch (err) {
+      console.error("Failed to upload reel poster:", err);
+      alert("Reel poster upload failed.");
+    } finally {
+      setIsUploadingReelPoster(false);
+      e.target.value = "";
+    }
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,6 +384,18 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
+    if (reelEnabled && !reelVideoUrl.trim()) {
+      setErrorMsg("Project Reel requires a video URL or uploaded video when Show Reel Section is on.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (isUploadingThumb || isUploadingGallery || isUploadingVideo || isUploadingReelVideo || isUploadingReelPoster) {
+      setErrorMsg("Please wait for all uploads to finish before saving.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setIsSaving(true);
 
     const parsedTags = tagsInput
@@ -349,6 +422,16 @@ function EditProjectContent({ id }: { id: string }) {
       }))
       .filter((step) => step.phase || step.title || step.description);
     const sanitizedFeedbacks = feedbacks.filter((f) => f.name.trim() || f.text.trim());
+    const sanitizedReelSection: ProjectReelSection = {
+      enabled: reelEnabled,
+      title: reelTitle.trim() || undefined,
+      description: reelDescription.trim() || undefined,
+      videoUrl: reelVideoUrl.trim() || undefined,
+      posterUrl: reelPosterUrl.trim() || undefined,
+      autoplay: reelAutoplay,
+      muted: reelAutoplay ? true : reelMuted,
+      loop: reelLoop,
+    };
 
     // Sequence parsing
     let parsedSequence: number | undefined = undefined;
@@ -390,6 +473,7 @@ function EditProjectContent({ id }: { id: string }) {
       impact: impact.trim(),
       compliance: compliance.trim(),
       process: sanitizedProcess,
+      reelSection: sanitizedReelSection,
     };
 
     try {
@@ -856,6 +940,91 @@ function EditProjectContent({ id }: { id: string }) {
                 )}
               </div>
             </div>
+          </Card>
+
+          {/* Project Reel Section */}
+          <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
+            <div className="flex flex-col gap-3 border-b border-[#1E2D47] pb-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-2">
+                <Video className="h-4 w-4 text-[#818CF8]" />
+                Project Reel
+              </h2>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reelEnabled}
+                  onChange={(e) => setReelEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-[#1E2D47] bg-[#07090F] accent-[#0EA5E9]"
+                />
+                Show Reel Section
+              </label>
+            </div>
+
+            {!reelEnabled ? (
+              <p className="text-xs text-slate-500 italic">
+                Reel is disabled. The public project page will render no reel wrapper or blank space.
+              </p>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-300">Reel Title</Label>
+                    <Input value={reelTitle} onChange={(e) => setReelTitle(e.target.value)} placeholder="Behind the Project" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-300">Reel Video URL <span className="text-red-500">*</span></Label>
+                    <Input value={reelVideoUrl} onChange={(e) => setReelVideoUrl(e.target.value)} placeholder="Paste MP4/WebM URL or upload below" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-semibold text-slate-300">Reel Description</Label>
+                    <Textarea value={reelDescription} onChange={(e) => setReelDescription(e.target.value)} placeholder="Optional short description shown beside the vertical reel." className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[90px]" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)] gap-5 items-start">
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id="reel-video-upload" className="hidden" onChange={handleReelVideoUpload} disabled={isUploadingReelVideo} />
+                      <Button type="button" onClick={() => document.getElementById('reel-video-upload')?.click()} disabled={isUploadingReelVideo} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer">
+                        {isUploadingReelVideo ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3.5 w-3.5" />}
+                        {reelVideoUrl ? "Replace Reel Video" : "Upload Reel Video"}
+                      </Button>
+                      {reelVideoUrl && <Button type="button" onClick={() => setReelVideoUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs h-9 flex items-center gap-1.5 cursor-pointer"><Trash2 className="h-3.5 w-3.5" />Remove Video</Button>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-300">Reel Poster / Thumbnail</Label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input value={reelPosterUrl} onChange={(e) => setReelPosterUrl(e.target.value)} placeholder="Optional poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono flex-1" />
+                        <input type="file" accept="image/*" id="reel-poster-upload" className="hidden" onChange={handleReelPosterUpload} disabled={isUploadingReelPoster} />
+                        <Button type="button" onClick={() => document.getElementById('reel-poster-upload')?.click()} disabled={isUploadingReelPoster} className="bg-[#1E2D47] hover:bg-[#2D3E5D] text-slate-300 text-xs h-9 flex items-center gap-1.5 cursor-pointer">
+                          {isUploadingReelPoster ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Upload className="h-3.5 w-3.5" />}
+                          Upload Poster
+                        </Button>
+                        {reelPosterUrl && <Button type="button" onClick={() => setReelPosterUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs h-9 cursor-pointer">Remove</Button>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
+                      {[{label: "Autoplay", checked: reelAutoplay, set: setReelAutoplay}, {label: "Muted", checked: reelAutoplay ? true : reelMuted, set: setReelMuted, disabled: reelAutoplay}, {label: "Loop", checked: reelLoop, set: setReelLoop}].map((item) => (
+                        <label key={item.label} className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                          <input type="checkbox" checked={item.checked} disabled={item.disabled} onChange={(e) => item.set(e.target.checked)} className="h-4 w-4 rounded border-[#1E2D47] bg-[#07090F] accent-[#0EA5E9] disabled:opacity-60" />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                    {reelAutoplay && <p className="text-[10px] text-slate-400">Muted is forced on when autoplay is enabled so the frontend never autoplays with sound.</p>}
+                  </div>
+
+                  <div className="mx-auto w-full max-w-[280px]">
+                    <Label className="mb-2 block text-xs font-semibold text-slate-300">9:16 Preview</Label>
+                    <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black shadow-lg shadow-black/20">
+                      {reelVideoUrl ? <video src={reelVideoUrl} poster={reelPosterUrl || undefined} controls muted={reelAutoplay || reelMuted} loop={reelLoop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-slate-500">Upload or paste a reel video to preview.</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Section 4: Video Showcase */}

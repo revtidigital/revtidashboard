@@ -164,6 +164,17 @@ export interface ProjectFeedback {
   text: string;
 }
 
+export interface ProjectReelSection {
+  enabled: boolean;
+  title?: string;
+  description?: string;
+  videoUrl?: string;
+  posterUrl?: string;
+  autoplay?: boolean;
+  muted?: boolean;
+  loop?: boolean;
+}
+
 export interface ProjectCategory {
   id: string;
   name: string;
@@ -249,6 +260,7 @@ export interface Project {
   impact?: string;
   compliance?: string;
   process?: ProjectProcessStep[];
+  reelSection?: ProjectReelSection;
 }
 
 // -------------------------------------------------------------
