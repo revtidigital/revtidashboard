@@ -479,6 +479,18 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
+    if (reelEnabled && !reelVideoUrl.trim()) {
+      setErrorMsg("Project Reel requires a video URL or uploaded video when Show Reel Section is on.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (isUploadingThumb || isUploadingGallery || isUploadingVideo || isUploadingReelVideo || isUploadingReelPoster) {
+      setErrorMsg("Please wait for all uploads to finish before saving.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setIsSaving(true);
 
     const parsedTags = tagsInput
