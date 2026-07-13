@@ -162,6 +162,11 @@ function EditProjectContent({ id }: { id: string }) {
   const [reelLoop, setReelLoop] = useState(true);
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [categoryToDelete, setCategoryToDelete] = useState<ProjectCategory | null>(null);
+  const [replacementCategoryId, setReplacementCategoryId] = useState("");
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [categorySuccessMsg, setCategorySuccessMsg] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState("");
   const [isAddingCat, setIsAddingCat] = useState(false);
   const [isUploadingThumb, setIsUploadingThumb] = useState(false);
@@ -195,6 +200,7 @@ function EditProjectContent({ id }: { id: string }) {
           service.getProjectCategories()
         ]);
         setCategories(categoriesData);
+        setAllProjects(allProjects);
 
         if (isNew) {
           // Default sequence to next available sequence
@@ -327,6 +333,60 @@ function EditProjectContent({ id }: { id: string }) {
     }
     setProcessSteps(cleaned);
     closeSectionDialog();
+  };
+
+
+  const getCategoryUsageCount = (categorySlug: string) => allProjects.filter((item) => item.cat === categorySlug).length;
+  const isReservedCategory = (category: ProjectCategory) => ["all", "uncategorized"].includes(category.slug.toLowerCase());
+
+  const openDeleteCategoryDialog = (category: ProjectCategory, event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (isReservedCategory(category)) {
+      setErrorMsg("This system category cannot be deleted.");
+      return;
+    }
+    const replacement = categories.find((item) => item.id !== category.id && !isReservedCategory(item));
+    setReplacementCategoryId(replacement?.id || "");
+    setCategoryToDelete(category);
+    setCategorySuccessMsg(null);
+  };
+
+  const closeDeleteCategoryDialog = () => {
+    if (isDeletingCategory) return;
+    setCategoryToDelete(null);
+    setReplacementCategoryId("");
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    const usageCount = getCategoryUsageCount(categoryToDelete.slug);
+    if (usageCount > 0 && !replacementCategoryId) {
+      setErrorMsg("Choose a replacement category before deleting a category that is used by projects.");
+      return;
+    }
+
+    setIsDeletingCategory(true);
+    setErrorMsg(null);
+    try {
+      const service = getWorkspaceService();
+      await service.deleteProjectCategory(categoryToDelete.id, usageCount > 0 ? { replacementCategoryId } : undefined);
+      const replacement = categories.find((item) => item.id === replacementCategoryId);
+      const nextCategories = categories.filter((item) => item.id !== categoryToDelete.id);
+      setCategories(nextCategories);
+      setAllProjects((projects) => projects.map((item) => item.cat === categoryToDelete.slug && replacement ? { ...item, cat: replacement.slug } : item));
+      if (cat === categoryToDelete.slug) {
+        setCat(replacement?.slug || nextCategories[0]?.slug || "");
+      }
+      setCategorySuccessMsg(`Deleted category “${categoryToDelete.name}”.${usageCount > 0 && replacement ? ` Reassigned ${usageCount} project${usageCount === 1 ? "" : "s"} to “${replacement.name}”.` : ""}`);
+      setCategoryToDelete(null);
+      setReplacementCategoryId("");
+    } catch (err) {
+      console.error("Failed to delete project category:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Failed to delete category. Please try again.");
+    } finally {
+      setIsDeletingCategory(false);
+    }
   };
 
   const handleAddCategory = async () => {
@@ -677,6 +737,12 @@ function EditProjectContent({ id }: { id: string }) {
         </div>
       )}
 
+      {categorySuccessMsg && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 px-4 py-2.5 rounded-md text-xs flex items-center gap-2">
+          <span className="font-semibold">Success:</span> {categorySuccessMsg}
+        </div>
+      )}
+
       {/* Main Form Layout */}
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Form Content */}
@@ -716,9 +782,25 @@ function EditProjectContent({ id }: { id: string }) {
                           <SelectItem
                             key={c.slug}
                             value={c.slug}
-                            className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]"
+                            className="hover:bg-[#1E2D47] focus:bg-[#1E2D47] pr-2"
                           >
-                            {c.name}
+                            <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                              <span className="truncate">{c.name}</span>
+                              {!isReservedCategory(c) && (
+                                <button
+                                  type="button"
+                                  aria-label={`Delete ${c.name}`}
+                                  onClick={(event) => openDeleteCategoryDialog(c, event)}
+                                  onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                  className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1134,6 +1216,47 @@ function EditProjectContent({ id }: { id: string }) {
           </Card>
         </div>
       </form>
+
+
+
+      <PortfolioSectionDialog
+        open={Boolean(categoryToDelete)}
+        title="Delete Portfolio Category"
+        description={categoryToDelete ? (getCategoryUsageCount(categoryToDelete.slug) > 0 ? `${getCategoryUsageCount(categoryToDelete.slug)} project${getCategoryUsageCount(categoryToDelete.slug) === 1 ? " is" : "s are"} using this category. Choose how to handle them before deleting.` : `Delete the category ‘${categoryToDelete.name}’? This action cannot be undone.`) : "Confirm category deletion."}
+        onCancel={closeDeleteCategoryDialog}
+        onSave={handleDeleteCategory}
+        saveLabel={isDeletingCategory ? "Deleting..." : "Delete Category"}
+      >
+        {categoryToDelete && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+              <p className="font-semibold">Delete “{categoryToDelete.name}”?</p>
+              <p className="mt-1 text-xs text-red-200/80">This action cannot be undone.</p>
+            </div>
+
+            {getCategoryUsageCount(categoryToDelete.slug) > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-slate-300">Move affected projects to</Label>
+                <Select value={replacementCategoryId} onValueChange={(value) => setReplacementCategoryId(value || "")}>
+                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white">
+                    <SelectValue placeholder="Select replacement category" />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    {categories.filter((item) => item.id !== categoryToDelete.id && !isReservedCategory(item)).map((item) => (
+                      <SelectItem key={item.id} value={item.id} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-slate-500">Projects use the category slug in their <code>cat</code> field, so they must be reassigned before deletion.</p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">No projects currently use this category.</p>
+            )}
+          </div>
+        )}
+      </PortfolioSectionDialog>
 
       <PortfolioSectionDialog
         open={activeDialog === "overview"}

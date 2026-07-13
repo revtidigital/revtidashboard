@@ -193,6 +193,10 @@ export interface ProjectCategory {
   created_at?: string;
 }
 
+export interface DeleteProjectCategoryOptions {
+  replacementCategoryId?: string;
+}
+
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -407,7 +411,7 @@ export interface IWorkspaceService {
   deleteProject(id: string): Promise<void>;
   getProjectCategories(): Promise<ProjectCategory[]>;
   createProjectCategory(name: string): Promise<ProjectCategory>;
-  deleteProjectCategory(id: string): Promise<void>;
+  deleteProjectCategory(id: string, options?: DeleteProjectCategoryOptions): Promise<void>;
   uploadProjectFile(file: File): Promise<string>;
 
   // Website content

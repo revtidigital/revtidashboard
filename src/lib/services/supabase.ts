@@ -17,6 +17,7 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  DeleteProjectCategoryOptions,
   PMProject,
   PMProjectDetail,
   PMTaskSummary,
@@ -994,9 +995,59 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
-  async deleteProjectCategory(id: string): Promise<void> {
+  async deleteProjectCategory(id: string, options: DeleteProjectCategoryOptions = {}): Promise<void> {
     await this.assertCanMutateContent();
     try {
+      const { data: category, error: categoryError } = await this.client
+        .from("project_categories")
+        .select("id, name, slug")
+        .eq("id", id)
+        .single();
+
+      if (categoryError || !category) {
+        throw new Error("Category not found.");
+      }
+
+      const reservedSlugs = new Set(["all", "uncategorized"]);
+      if (reservedSlugs.has(category.slug)) {
+        throw new Error("This system category cannot be deleted.");
+      }
+
+      let replacementSlug: string | null = null;
+      if (options.replacementCategoryId) {
+        const { data: replacement, error: replacementError } = await this.client
+          .from("project_categories")
+          .select("id, slug")
+          .eq("id", options.replacementCategoryId)
+          .neq("id", id)
+          .single();
+
+        if (replacementError || !replacement) {
+          throw new Error("Replacement category not found.");
+        }
+        replacementSlug = replacement.slug;
+      }
+
+      const { count, error: countError } = await this.client
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("cat", category.slug);
+
+      if (countError) throw new Error(countError.message || JSON.stringify(countError));
+      const usageCount = count || 0;
+
+      if (usageCount > 0 && !replacementSlug) {
+        throw new Error(`${usageCount} project${usageCount === 1 ? " is" : "s are"} using this category. Choose a replacement before deleting.`);
+      }
+
+      if (usageCount > 0 && replacementSlug) {
+        const { error: updateError } = await this.client
+          .from("projects")
+          .update({ cat: replacementSlug })
+          .eq("cat", category.slug);
+        if (updateError) throw new Error("Failed to reassign projects before deleting the category.");
+      }
+
       const { error } = await this.client
         .from("project_categories")
         .delete()
