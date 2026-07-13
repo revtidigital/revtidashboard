@@ -152,6 +152,7 @@ export interface ProjectStat {
 }
 
 export interface ProjectProcessStep {
+  id?: string;
   phase: string;
   title: string;
   description: string;
@@ -162,6 +163,16 @@ export interface ProjectFeedback {
   name: string;
   role: string;
   text: string;
+}
+
+export interface ProjectSectionVisibility {
+  overview: boolean;
+  process: boolean;
+  impact: boolean;
+  gallery: boolean;
+  reel: boolean;
+  videoShowcase: boolean;
+  relatedProjects: boolean;
 }
 
 export interface ProjectReelSection {
@@ -261,6 +272,7 @@ export interface Project {
   compliance?: string;
   process?: ProjectProcessStep[];
   reelSection?: ProjectReelSection;
+  section_visibility?: Partial<ProjectSectionVisibility>;
 }
 
 // -------------------------------------------------------------
