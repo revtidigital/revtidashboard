@@ -12,6 +12,7 @@ import {
   TrendingUp,
   User,
   Quote,
+  Video,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -511,6 +512,34 @@ function PortfolioContent() {
                     </div>
                   </div>
                 )}
+
+                {/* Project Reel */}
+                {viewProject.reelSection?.enabled && (() => {
+                  const visibleReels = (viewProject.reelSection?.items || [])
+                    .filter((item) => item.enabled && item.videoUrl?.trim())
+                    .sort((a, b) => a.displayOrder - b.displayOrder);
+                  if (visibleReels.length === 0) return null;
+                  return (
+                    <div className="space-y-4 border-t border-[#1E2D47] pt-4">
+                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Video className="h-3.5 w-3.5 text-[#818CF8]" />
+                        {viewProject.reelSection.title || "Project Reels"}
+                      </h3>
+                      {viewProject.reelSection.description && <p className="text-xs text-slate-400 leading-relaxed">{viewProject.reelSection.description}</p>}
+                      <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),280px))]">
+                        {visibleReels.map((reel) => (
+                          <div key={reel.id} className="space-y-2 rounded-xl border border-[#1E2D47] bg-[#07090F]/40 p-3">
+                            <div className="aspect-[9/16] overflow-hidden rounded-xl border border-[#1E2D47] bg-black">
+                              <video src={reel.videoUrl} poster={reel.posterUrl || undefined} controls muted={reel.autoplay || reel.muted} loop={reel.loop} preload="metadata" className="h-full w-full object-cover" />
+                            </div>
+                            {reel.title && <p className="text-xs font-semibold text-white">{reel.title}</p>}
+                            {reel.description && <p className="text-[11px] leading-relaxed text-slate-400 whitespace-pre-line">{reel.description}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Gallery Grid */}
                 {viewProject.gallery && viewProject.gallery.length > 0 && (

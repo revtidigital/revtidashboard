@@ -17,6 +17,7 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  DeleteProjectCategoryOptions,
   PMProject,
   PMProjectDetail,
   PMTaskSummary,
@@ -739,11 +740,28 @@ export class SupabaseService implements IWorkspaceService {
         console.warn("Supabase 'projects' table query failed; returning an empty portfolio list:", error.message);
         return [];
       }
-      return (data || []) as Project[];
+      return (data || []).map((row) => this.normalizeProjectRow(row));
     } catch (e) {
       console.warn("Error querying projects from Supabase; returning an empty portfolio list:", e);
       return [];
     }
+  }
+
+
+  private normalizeProjectRow(row: unknown): Project {
+    const record = row as Project & { reel_section?: Project["reelSection"] };
+    return {
+      ...record,
+      reelSection: record.reelSection || record.reel_section,
+    } as Project;
+  }
+
+  private toProjectDbPayload<T extends Partial<Project>>(data: T): Record<string, unknown> {
+    const { reelSection, ...rest } = data;
+    return {
+      ...rest,
+      ...(reelSection !== undefined ? { reel_section: reelSection } : {}),
+    };
   }
 
   private assertProjectPayload(data: Partial<Project>): void {
@@ -764,15 +782,45 @@ export class SupabaseService implements IWorkspaceService {
       this.assertBoolean(reel.enabled, "reelSection.enabled");
       if (reel.title !== undefined && typeof reel.title !== "string") throw new Error("Invalid project field: reelSection.title must be a string.");
       if (reel.description !== undefined && typeof reel.description !== "string") throw new Error("Invalid project field: reelSection.description must be a string.");
-      if (reel.posterUrl) this.assertValidOptionalUrl(reel.posterUrl, "reelSection.posterUrl");
-      if (reel.videoUrl) this.assertSupportedProjectVideoUrl(reel.videoUrl, "reelSection.videoUrl");
-      if (reel.enabled && !reel.videoUrl?.trim()) {
-        throw new Error("Project Reel requires a video URL when enabled.");
+      if (!Array.isArray(reel.items)) throw new Error("Invalid project field: reelSection.items must be an array.");
+      for (const [index, item] of reel.items.entries()) {
+        if (!item.id || typeof item.id !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].id must be a string.`);
+        this.assertBoolean(item.enabled, `reelSection.items[${index}].enabled`);
+        if (item.title !== undefined && typeof item.title !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].title must be a string.`);
+        if (item.description !== undefined && typeof item.description !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].description must be a string.`);
+        if (item.posterUrl) this.assertValidOptionalUrl(item.posterUrl, `reelSection.items[${index}].posterUrl`);
+        if (item.videoUrl) this.assertSupportedProjectVideoUrl(item.videoUrl, `reelSection.items[${index}].videoUrl`);
+        if (item.enabled && !item.videoUrl?.trim()) throw new Error(`Reel ${index + 1} requires a video URL when enabled.`);
+        if (item.autoplay !== undefined) this.assertBoolean(item.autoplay, `reelSection.items[${index}].autoplay`);
+        if (item.muted !== undefined) this.assertBoolean(item.muted, `reelSection.items[${index}].muted`);
+        if (item.loop !== undefined) this.assertBoolean(item.loop, `reelSection.items[${index}].loop`);
+        if (!Number.isInteger(item.displayOrder) || item.displayOrder < 0) throw new Error(`Invalid project field: reelSection.items[${index}].displayOrder must be a non-negative integer.`);
       }
-      if (reel.autoplay !== undefined) this.assertBoolean(reel.autoplay, "reelSection.autoplay");
-      if (reel.muted !== undefined) this.assertBoolean(reel.muted, "reelSection.muted");
-      if (reel.loop !== undefined) this.assertBoolean(reel.loop, "reelSection.loop");
+      if (reel.enabled && !reel.items.some((item) => item.enabled && item.videoUrl?.trim())) {
+        throw new Error("Project Reel requires at least one enabled reel with a video URL when enabled.");
+      }
     }
+  }
+
+
+  private getMissingProjectColumn(error: unknown): keyof Project | null {
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error || "");
+    const match = message.match(/Could not find the '([^']+)' column of 'projects'/i);
+    if (!match) return null;
+    const column = match[1] as keyof Project;
+    return column;
+  }
+
+  private stripMissingProjectColumn<T extends Partial<Project>>(data: T, column: keyof Project): T {
+    if (!(column in data)) return data;
+    const { [column]: _removed, ...rest } = data;
+    void _removed;
+    console.warn(`Supabase projects schema is missing the '${String(column)}' column; retrying save without that field. Apply supabase_schema.sql to persist this field.`);
+    return rest as T;
   }
 
   async createProject(data: Omit<Project, "id" | "created_at">): Promise<Project> {
@@ -796,16 +844,25 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: newProject, error } = await this.client
-        .from("projects")
-        .insert(data)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = this.toProjectDbPayload(data);
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: newProject, error } = await this.client
+          .from("projects")
+          .insert(payload)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return this.normalizeProjectRow(newProject);
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return newProject as Project;
     } catch (e) {
       console.error("Error inserting project in Supabase:", e);
       if (e instanceof Error) throw e;
@@ -886,17 +943,26 @@ export class SupabaseService implements IWorkspaceService {
         }
       }
 
-      const { data: updated, error } = await this.client
-        .from("projects")
-        .update(data)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message || JSON.stringify(error));
+      let payload = this.toProjectDbPayload(data);
+      const ignoredColumns = new Set<keyof Project>();
+      while (true) {
+        const { data: updated, error } = await this.client
+          .from("projects")
+          .update(payload)
+          .eq("id", id)
+          .select()
+          .single();
+        if (!error) {
+          this.triggerFrontendSync(["portfolio", "site-content"]);
+          return this.normalizeProjectRow(updated);
+        }
+        const missingColumn = this.getMissingProjectColumn(error);
+        if (!missingColumn || ignoredColumns.has(missingColumn)) {
+          throw new Error(error.message || JSON.stringify(error));
+        }
+        ignoredColumns.add(missingColumn);
+        payload = this.stripMissingProjectColumn(payload, missingColumn);
       }
-      this.triggerFrontendSync(["portfolio", "site-content"]);
-      return updated as Project;
     } catch (e) {
       console.error("Error updating project in Supabase:", e);
       if (e instanceof Error) throw e;
@@ -955,9 +1021,59 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
-  async deleteProjectCategory(id: string): Promise<void> {
+  async deleteProjectCategory(id: string, options: DeleteProjectCategoryOptions = {}): Promise<void> {
     await this.assertCanMutateContent();
     try {
+      const { data: category, error: categoryError } = await this.client
+        .from("project_categories")
+        .select("id, name, slug")
+        .eq("id", id)
+        .single();
+
+      if (categoryError || !category) {
+        throw new Error("Category not found.");
+      }
+
+      const reservedSlugs = new Set(["all", "uncategorized"]);
+      if (reservedSlugs.has(category.slug)) {
+        throw new Error("This system category cannot be deleted.");
+      }
+
+      let replacementSlug: string | null = null;
+      if (options.replacementCategoryId) {
+        const { data: replacement, error: replacementError } = await this.client
+          .from("project_categories")
+          .select("id, slug")
+          .eq("id", options.replacementCategoryId)
+          .neq("id", id)
+          .single();
+
+        if (replacementError || !replacement) {
+          throw new Error("Replacement category not found.");
+        }
+        replacementSlug = replacement.slug;
+      }
+
+      const { count, error: countError } = await this.client
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("cat", category.slug);
+
+      if (countError) throw new Error(countError.message || JSON.stringify(countError));
+      const usageCount = count || 0;
+
+      if (usageCount > 0 && !replacementSlug) {
+        throw new Error(`${usageCount} project${usageCount === 1 ? " is" : "s are"} using this category. Choose a replacement before deleting.`);
+      }
+
+      if (usageCount > 0 && replacementSlug) {
+        const { error: updateError } = await this.client
+          .from("projects")
+          .update({ cat: replacementSlug })
+          .eq("cat", category.slug);
+        if (updateError) throw new Error("Failed to reassign projects before deleting the category.");
+      }
+
       const { error } = await this.client
         .from("project_categories")
         .delete()
