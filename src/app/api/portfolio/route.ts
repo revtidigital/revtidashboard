@@ -39,6 +39,20 @@ const getCorsHeaders = (requestOrigin: string | null): CorsHeaders => {
 
 const normalizeArray = <T>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
 
+const normalizeReelSection = (project: Project) => {
+  const reel = project.reelSection;
+  return {
+    enabled: reel?.enabled === true,
+    title: reel?.title || undefined,
+    description: reel?.description || undefined,
+    videoUrl: reel?.videoUrl || undefined,
+    posterUrl: reel?.posterUrl || undefined,
+    autoplay: reel?.autoplay ?? false,
+    muted: reel?.autoplay ? true : (reel?.muted ?? true),
+    loop: reel?.loop ?? true,
+  };
+};
+
 const toPublicProject = (project: Project) => ({
   id: project.id,
   cat: project.cat,
@@ -68,6 +82,7 @@ const toPublicProject = (project: Project) => ({
   impact: project.impact,
   compliance: project.compliance,
   process: normalizeArray(project.process),
+  reelSection: normalizeReelSection(project),
 });
 
 const toPublicCategory = (category: ProjectCategory) => ({
@@ -92,11 +107,7 @@ const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
   return trim(project.industry) || category?.name || project.cat;
 };
 
-const getRelatedProjects = (project: Project, projects: Project[]) => {
-  const tags = new Set(project.tags || []);
-
-  return null;
-};
+const getRelatedProjects = (_project: Project, _projects: Project[]) => null;
 
 const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
   const industry = getCategoryName(project, categories);
@@ -129,6 +140,9 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
     }),
     process: (project.process || []).filter((step) => step.phase || step.title || step.description),
     brandShowcase: (project.gallery || []).filter(Boolean),
+    reelSection: project.reelSection?.enabled && project.reelSection.videoUrl
+      ? normalizeReelSection(project)
+      : undefined,
     impactResults: (project.stats || [])
       .filter((stat) => stat.num || stat.label || stat.before || stat.after)
       .map((stat) => compactObject({

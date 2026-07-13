@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS projects (
     impact TEXT,
     compliance TEXT,
     process JSONB NOT NULL DEFAULT '[]',
+    "reelSection" JSONB NOT NULL DEFAULT '{"enabled": false, "autoplay": false, "muted": true, "loop": true}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -450,6 +451,7 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS approach TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS impact TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS compliance TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS process JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS "reelSection" JSONB NOT NULL DEFAULT '{"enabled": false, "autoplay": false, "muted": true, "loop": true}';
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
