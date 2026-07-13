@@ -16,6 +16,7 @@ import {
   TaskReminder,
   Project,
   ProjectCategory,
+  DeleteProjectCategoryOptions,
   PMProject,
   PMProjectDetail,
   PMTaskSummary,
@@ -939,8 +940,25 @@ export class MockService implements IWorkspaceService {
     return newCat;
   }
 
-  async deleteProjectCategory(id: string): Promise<void> {
+  async deleteProjectCategory(id: string, options: DeleteProjectCategoryOptions = {}): Promise<void> {
     const categories = StorageManager.get(MockService.KEY_PROJECT_CATEGORIES, MOCK_PROJECT_CATEGORIES);
+    const category = categories.find((c) => String(c.id) === String(id));
+    if (!category) throw new Error("Category not found.");
+    if (["all", "uncategorized"].includes(category.slug)) throw new Error("This system category cannot be deleted.");
+
+    const projects = StorageManager.get(MockService.KEY_PROJECTS, MOCK_PROJECTS);
+    const affected = projects.filter((p) => p.cat === category.slug);
+    if (affected.length > 0) {
+      const replacement = categories.find((c) => String(c.id) === String(options.replacementCategoryId));
+      if (!replacement || replacement.id === category.id) {
+        throw new Error(`${affected.length} project${affected.length === 1 ? " is" : "s are"} using this category. Choose a replacement before deleting.`);
+      }
+      StorageManager.set(
+        MockService.KEY_PROJECTS,
+        projects.map((project) => project.cat === category.slug ? { ...project, cat: replacement.slug } : project)
+      );
+    }
+
     StorageManager.set(
       MockService.KEY_PROJECT_CATEGORIES,
       categories.filter((c) => String(c.id) !== String(id))

@@ -39,17 +39,73 @@ const getCorsHeaders = (requestOrigin: string | null): CorsHeaders => {
 
 const normalizeArray = <T>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
 
+
+const hasText = (value?: string | null) => Boolean(value?.trim());
+
+const hasOverviewContent = (project: Project) => [project.overview_title, project.desc, project.challenge, project.approach, project.impact, project.compliance].some(hasText);
+const hasProcessContent = (project: Project) => normalizeArray(project.process).some((step) => hasText(step.phase) || hasText(step.title) || hasText(step.description));
+const hasImpactContent = (project: Project) => normalizeArray(project.stats).some((stat) => hasText(stat.num) || hasText(stat.label) || hasText(stat.before) || hasText(stat.after));
+const hasGalleryContent = (project: Project) => normalizeArray(project.gallery).some(hasText);
+const hasVideoShowcaseContent = (project: Project) => project.video_type && project.video_type !== "none" && hasText(project.video_url);
+
+const sectionEnabled = (project: Project, key: keyof NonNullable<Project["section_visibility"]>, hasContent: boolean) => {
+  const explicit = project.section_visibility?.[key];
+  return typeof explicit === "boolean" ? explicit : hasContent;
+};
+
+const normalizeSectionVisibility = (project: Project) => ({
+  overview: sectionEnabled(project, "overview", hasOverviewContent(project)),
+  process: sectionEnabled(project, "process", hasProcessContent(project)),
+  impact: sectionEnabled(project, "impact", hasImpactContent(project)),
+  gallery: sectionEnabled(project, "gallery", hasGalleryContent(project)),
+  reel: sectionEnabled(project, "reel", normalizeReelItems(project.reelSection).some((item) => item.enabled && hasText(item.videoUrl))),
+  videoShowcase: sectionEnabled(project, "videoShowcase", Boolean(hasVideoShowcaseContent(project))),
+  relatedProjects: sectionEnabled(project, "relatedProjects", false),
+});
+
+const normalizeReelItems = (reel: Project["reelSection"]) => {
+  const rawItems = Array.isArray(reel?.items) && reel.items.length > 0
+    ? reel.items
+    : reel?.videoUrl
+      ? [{
+        id: `legacy-reel-${reel.videoUrl}`,
+        enabled: reel.enabled === true,
+        title: reel.title,
+        description: reel.description,
+        videoUrl: reel.videoUrl,
+        posterUrl: reel.posterUrl,
+        autoplay: reel.autoplay,
+        muted: reel.muted,
+        loop: reel.loop,
+        displayOrder: 0,
+      }]
+      : [];
+
+  return rawItems
+    .map((item, index) => ({
+      id: item.id || `reel-${index}`,
+      enabled: item.enabled === true,
+      title: item.title || undefined,
+      description: item.description || undefined,
+      videoUrl: item.videoUrl || "",
+      posterUrl: item.posterUrl || undefined,
+      autoplay: item.autoplay ?? false,
+      muted: item.autoplay ? true : (item.muted ?? true),
+      loop: item.loop ?? true,
+      displayOrder: Number.isInteger(item.displayOrder) && item.displayOrder >= 0 ? item.displayOrder : index,
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((item, index) => ({ ...item, displayOrder: index }));
+};
+
 const normalizeReelSection = (project: Project) => {
   const reel = project.reelSection;
+  const items = normalizeReelItems(reel);
   return {
-    enabled: reel?.enabled === true,
+    enabled: reel?.enabled === true && normalizeSectionVisibility(project).reel,
     title: reel?.title || undefined,
     description: reel?.description || undefined,
-    videoUrl: reel?.videoUrl || undefined,
-    posterUrl: reel?.posterUrl || undefined,
-    autoplay: reel?.autoplay ?? false,
-    muted: reel?.autoplay ? true : (reel?.muted ?? true),
-    loop: reel?.loop ?? true,
+    items,
   };
 };
 
@@ -83,6 +139,7 @@ const toPublicProject = (project: Project) => ({
   compliance: project.compliance,
   process: normalizeArray(project.process),
   reelSection: normalizeReelSection(project),
+  section_visibility: normalizeSectionVisibility(project),
 });
 
 const toPublicCategory = (category: ProjectCategory) => ({
@@ -107,10 +164,12 @@ const getCategoryName = (project: Project, categories: ProjectCategory[]) => {
   return trim(project.industry) || category?.name || project.cat;
 };
 
-const getRelatedProjects = (_project: Project, _projects: Project[]) => null;
+const getRelatedProjects = () => null;
 
 const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[], projects: Project[]) => {
+  void projects;
   const industry = getCategoryName(project, categories);
+  const visibility = normalizeSectionVisibility(project);
   const overviewCards = [
     { title: "The Challenge", body: trim(project.challenge) },
     { title: "Our Approach", body: trim(project.approach) },
@@ -133,28 +192,29 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
       description: trim(project.tagline) || trim(project.shortDesc),
       image: trim(project.thumb),
     }),
-    overview: compactObject({
+    section_visibility: visibility,
+    overview: visibility.overview && hasOverviewContent(project) ? compactObject({
       title: trim(project.overview_title) || trim(project.headline),
       body: trim(project.desc),
       cards: overviewCards,
-    }),
-    process: (project.process || []).filter((step) => step.phase || step.title || step.description),
-    brandShowcase: (project.gallery || []).filter(Boolean),
-    reelSection: project.reelSection?.enabled && project.reelSection.videoUrl
+    }) : undefined,
+    process: visibility.process ? (project.process || []).filter((step) => step.phase || step.title || step.description) : undefined,
+    brandShowcase: visibility.gallery ? (project.gallery || []).filter(Boolean) : undefined,
+    reelSection: visibility.reel && normalizeReelSection(project).enabled && normalizeReelSection(project).items.some((item) => item.enabled && item.videoUrl)
       ? normalizeReelSection(project)
       : undefined,
-    impactResults: (project.stats || [])
+    impactResults: visibility.impact ? (project.stats || [])
       .filter((stat) => stat.num || stat.label || stat.before || stat.after)
       .map((stat) => compactObject({
         label: trim(stat.label),
         value: trim(stat.num),
         before: trim(stat.before),
         after: trim(stat.after),
-      })),
-    video: project.video_type && project.video_type !== "none" && project.video_url
+      })) : undefined,
+    video: visibility.videoShowcase && project.video_type && project.video_type !== "none" && project.video_url
       ? { type: project.video_type, url: project.video_url }
       : undefined,
-    relatedWork: getRelatedProjects(project, projects),
+    relatedWork: visibility.relatedProjects ? getRelatedProjects() : undefined,
   });
 };
 
