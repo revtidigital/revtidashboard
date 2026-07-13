@@ -291,6 +291,7 @@ export interface Project {
   compliance?: string;
   process?: ProjectProcessStep[];
   reelSection?: ProjectReelSection;
+  reel_section?: ProjectReelSection;
   section_visibility?: Partial<ProjectSectionVisibility>;
 }
 

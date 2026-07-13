@@ -857,6 +857,9 @@ export class SupabaseService implements IWorkspaceService {
           return this.normalizeProjectRow(newProject);
         }
         const missingColumn = this.getMissingProjectColumn(error);
+        if (missingColumn === "reel_section") {
+          throw new Error("The projects.reel_section column is missing. Run the Supabase schema migration before saving Project Reels.");
+        }
         if (!missingColumn || ignoredColumns.has(missingColumn)) {
           throw new Error(error.message || JSON.stringify(error));
         }
@@ -957,6 +960,9 @@ export class SupabaseService implements IWorkspaceService {
           return this.normalizeProjectRow(updated);
         }
         const missingColumn = this.getMissingProjectColumn(error);
+        if (missingColumn === "reel_section") {
+          throw new Error("The projects.reel_section column is missing. Run the Supabase schema migration before saving Project Reels.");
+        }
         if (!missingColumn || ignoredColumns.has(missingColumn)) {
           throw new Error(error.message || JSON.stringify(error));
         }
