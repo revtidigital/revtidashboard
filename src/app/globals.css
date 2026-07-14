@@ -284,10 +284,10 @@
   .portfolio-section-dialog {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: min(80vw, 1200px);
-    height: min(80dvh, 900px);
-    max-width: calc(100vw - 32px);
-    max-height: calc(100dvh - 32px);
+    width: min(80vw, 1280px);
+    height: 80dvh;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100dvh - 48px);
     overflow: hidden;
   }
 
@@ -340,10 +340,17 @@
     overflow-x: auto;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1439px) {
     .portfolio-section-dialog {
-      width: min(92vw, 1000px);
-      height: min(88dvh, 900px);
+      width: min(82vw, 1150px);
+      height: 82dvh;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .portfolio-section-dialog {
+      width: 90vw;
+      height: 88dvh;
     }
   }
 
@@ -375,10 +382,10 @@
     }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 767px) {
     .portfolio-section-dialog {
-      width: calc(100vw - 20px);
-      height: calc(100dvh - 20px);
+      width: calc(100vw - 24px);
+      height: calc(100dvh - 24px);
       max-width: none;
       max-height: none;
       border-radius: 14px;

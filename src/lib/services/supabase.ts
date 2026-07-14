@@ -789,7 +789,8 @@ export class SupabaseService implements IWorkspaceService {
         if (item.title !== undefined && typeof item.title !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].title must be a string.`);
         if (item.description !== undefined && typeof item.description !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].description must be a string.`);
         if (item.posterUrl) this.assertValidOptionalUrl(item.posterUrl, `reelSection.items[${index}].posterUrl`);
-        if (item.videoUrl) this.assertSupportedProjectVideoUrl(item.videoUrl, `reelSection.items[${index}].videoUrl`);
+        if (item.videoSource !== undefined && !["upload", "youtube", "vimeo", "direct", "external"].includes(item.videoSource)) throw new Error(`Invalid project field: reelSection.items[${index}].videoSource is not supported.`);
+        if (item.videoUrl) this.assertValidOptionalUrl(item.videoUrl, `reelSection.items[${index}].videoUrl`);
         if (item.enabled && !item.videoUrl?.trim()) throw new Error(`Reel ${index + 1} requires a video URL when enabled.`);
         if (item.autoplay !== undefined) this.assertBoolean(item.autoplay, `reelSection.items[${index}].autoplay`);
         if (item.muted !== undefined) this.assertBoolean(item.muted, `reelSection.items[${index}].muted`);
