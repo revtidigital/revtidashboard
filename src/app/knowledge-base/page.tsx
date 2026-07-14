@@ -20,6 +20,8 @@ import {
   Layers,
   LayoutGrid,
   List as ListIcon,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -57,7 +59,17 @@ function KnowledgeBaseContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+
+  const toggleExpanded = (docId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId);
+      else next.add(docId);
+      return next;
+    });
+  };
 
   // Assignment Modal State
   const [assignTarget, setAssignTarget] = useState<{ id: string; title: string } | null>(null);
@@ -164,14 +176,16 @@ function KnowledgeBaseContent() {
       childrenByParentId.set(d.parent_id, list);
     }
   }
-  const orderedDocuments: { doc: DocumentWithRelations; depth: number }[] = [];
-  const walkHierarchy = (doc: DocumentWithRelations, depth: number) => {
-    orderedDocuments.push({ doc, depth });
-    (childrenByParentId.get(doc.id) || [])
-      .sort((a, b) => naturalCompare(a.title, b.title))
-      .forEach((child) => walkHierarchy(child, depth + 1));
+  // For the collapsible list view: only show a child row if all its ancestors are expanded.
+  const visibleRows: { doc: DocumentWithRelations; depth: number; hasChildren: boolean }[] = [];
+  const buildVisibleRows = (doc: DocumentWithRelations, depth: number) => {
+    const kids = (childrenByParentId.get(doc.id) || []).sort((a, b) => naturalCompare(a.title, b.title));
+    visibleRows.push({ doc, depth, hasChildren: kids.length > 0 });
+    if (kids.length > 0 && expandedIds.has(doc.id)) {
+      kids.forEach((child) => buildVisibleRows(child, depth + 1));
+    }
   };
-  topLevelDocuments.forEach((doc) => walkHierarchy(doc, 0));
+  topLevelDocuments.forEach((doc) => buildVisibleRows(doc, 0));
 
   // Reusable actions menu (used by both grid cards and list rows).
   const renderActions = (doc: DocumentWithRelations) => (
@@ -480,16 +494,28 @@ function KnowledgeBaseContent() {
             <span className="col-span-1 text-right">Status</span>
           </div>
           <div className="divide-y divide-[#1E2D47]/50">
-            {orderedDocuments.map(({ doc, depth }) => (
+            {visibleRows.map(({ doc, depth, hasChildren }) => {
+              const isExpanded = expandedIds.has(doc.id);
+              return (
               <div
                 key={doc.id}
                 className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-[#1E2D47]/20 transition-colors group"
               >
                 {/* Title (indented by depth) */}
-                <div className="col-span-12 md:col-span-6 flex items-center gap-2 min-w-0" style={{ paddingLeft: depth * 20 }}>
-                  {depth > 0 && <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />}
-                  {depth === 0 && doc.children && doc.children.length > 0 && (
-                    <Layers className="h-3.5 w-3.5 shrink-0 text-[#0EA5E9]" />
+                <div className="col-span-12 md:col-span-6 flex items-center gap-1.5 min-w-0" style={{ paddingLeft: depth * 20 }}>
+                  {/* Expand/collapse arrow for parents; spacer otherwise for alignment */}
+                  {hasChildren ? (
+                    <button
+                      onClick={() => toggleExpanded(doc.id)}
+                      title={isExpanded ? "Collapse sub-SOPs" : "Expand sub-SOPs"}
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 hover:text-white hover:bg-[#1E2D47]"
+                    >
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                  ) : depth > 0 ? (
+                    <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                  ) : (
+                    <span className="inline-block h-5 w-5 shrink-0" />
                   )}
                   <button
                     onClick={() => router.push(`/knowledge-base/${doc.id}`)}
@@ -497,6 +523,11 @@ function KnowledgeBaseContent() {
                   >
                     {doc.title}
                   </button>
+                  {hasChildren && (
+                    <span className="shrink-0 rounded-full bg-[#0EA5E9]/10 border border-[#0EA5E9]/30 px-1.5 text-[10px] font-bold text-[#0EA5E9]">
+                      {(childrenByParentId.get(doc.id) || []).length}
+                    </span>
+                  )}
                 </div>
 
                 {/* Category */}
@@ -535,7 +566,8 @@ function KnowledgeBaseContent() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
