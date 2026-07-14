@@ -152,7 +152,7 @@ export default function SocialLinksPage() {
 
   return (
     <LayoutShell>
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="website-content-container space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-pink-500/10 border border-pink-500/20">
