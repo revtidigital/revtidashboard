@@ -284,11 +284,11 @@
   .portfolio-section-dialog.portfolio-section-dialog {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: min(80vw, 1180px);
+    width: min(70vw, 1180px);
+    min-width: min(60vw, 900px);
     height: min(82dvh, 880px);
-    max-width: calc(100vw - 48px);
+    max-width: calc(100vw - 64px);
     max-height: calc(100dvh - 48px);
-    min-width: 0;
     overflow: hidden;
     margin: auto;
   }
@@ -404,9 +404,11 @@
   }
 
 
-  @media (max-width: 1280px) {
+  @media (max-width: 1279px) {
     .portfolio-section-dialog.portfolio-section-dialog {
-      width: min(86vw, 1080px);
+      width: 82vw;
+      min-width: 0;
+      max-width: calc(100vw - 48px);
       height: min(84dvh, 860px);
     }
   }
