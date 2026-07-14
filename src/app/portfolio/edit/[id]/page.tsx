@@ -15,6 +15,7 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
+  LinkIcon,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -28,6 +29,7 @@ import {
   ProjectReelSection,
   ProjectReelItem,
   ProjectSectionVisibility,
+  ProjectVideoSource,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -59,6 +61,67 @@ type SectionKey = keyof ProjectSectionVisibility;
 type OverviewDraft = { overviewTitle: string; desc: string; client: string; industry: string; year: string; challenge: string; approach: string; impact: string; compliance: string; tagsInput: string; };
 type ReelUploadState = Record<string, { videoUploading: boolean; posterUploading: boolean }>;
 
+const VIDEO_SOURCE_OPTIONS: { value: ProjectVideoSource; label: string; urlLabel: string }[] = [
+  { value: "upload", label: "Upload Video", urlLabel: "Uploaded Video URL" },
+  { value: "youtube", label: "YouTube", urlLabel: "YouTube URL" },
+  { value: "vimeo", label: "Vimeo", urlLabel: "Vimeo URL" },
+  { value: "direct", label: "Direct MP4 URL", urlLabel: "Direct Video URL" },
+  { value: "external", label: "Other External URL", urlLabel: "External URL" },
+];
+
+const normalizeVideoSource = (source?: string | null, url?: string | null): ProjectVideoSource => {
+  if (source === "upload" || source === "youtube" || source === "vimeo" || source === "direct" || source === "external") return source;
+  if (source === "none") return "upload";
+  const lowerUrl = url?.toLowerCase() || "";
+  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) return "youtube";
+  if (lowerUrl.includes("vimeo.com")) return "vimeo";
+  if (/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(lowerUrl)) return "direct";
+  return "upload";
+};
+
+
+const isHttpUrl = (url?: string | null) => {
+  if (!url?.trim()) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const isDirectVideoUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /\.(mp4|webm|mov|m4v)(?:$|[?#])/i.test(url.trim()));
+const isUploadedProjectVideoUrl = (url?: string | null) => Boolean(url?.trim() && url.includes("/storage/v1/object/") && isDirectVideoUrl(url));
+const isValidYouTubeUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[A-Za-z0-9_-]{6,}/i.test(url.trim()));
+const isValidVimeoUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /vimeo\.com\/(?:video\/)?\d+/i.test(url.trim()));
+
+const getVideoSourceValidationError = (source: ProjectVideoSource, url?: string | null) => {
+  switch (source) {
+    case "upload":
+      return isUploadedProjectVideoUrl(url) ? null : "Upload Video requires a completed Storage upload. Upload a video file before saving.";
+    case "youtube":
+      return isValidYouTubeUrl(url) ? null : "Enter a valid YouTube URL for this Reel.";
+    case "vimeo":
+      return isValidVimeoUrl(url) ? null : "Enter a valid Vimeo URL for this Reel.";
+    case "direct":
+      return isDirectVideoUrl(url) ? null : "Enter a direct MP4, WebM, MOV, or M4V video URL.";
+    case "external":
+      return isHttpUrl(url) ? null : "Enter a valid external video URL.";
+  }
+};
+
+const getYoutubeEmbedUrl = (url: string) => {
+  const trimmed = url.trim();
+  const match = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : trimmed;
+};
+
+const getVimeoEmbedUrl = (url: string) => {
+  const trimmed = url.trim();
+  const match = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return match ? `https://player.vimeo.com/video/${match[1]}` : trimmed;
+};
+
 const textHasContent = (value?: string | null) => Boolean(value?.trim());
 const createDraftId = () => `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const withProcessIds = (steps: ProjectProcessStep[]) => steps.map((step) => ({ ...step, id: step.id || createDraftId() }));
@@ -69,6 +132,7 @@ const createReelItem = (overrides: Partial<ProjectReelItem> = {}): ProjectReelIt
   title: overrides.title || "",
   description: overrides.description || "",
   videoUrl: overrides.videoUrl || "",
+  videoSource: normalizeVideoSource(overrides.videoSource, overrides.videoUrl),
   posterUrl: overrides.posterUrl || "",
   autoplay: overrides.autoplay ?? false,
   muted: overrides.autoplay ? true : (overrides.muted ?? true),
@@ -89,6 +153,7 @@ const normalizeReelSectionForForm = (reel?: ProjectReelSection): ProjectReelSect
     title: reel.title,
     description: reel.description,
     videoUrl: reel.videoUrl,
+    videoSource: normalizeVideoSource(reel.items?.[0]?.videoSource, reel.videoUrl),
     posterUrl: reel.posterUrl,
     autoplay: reel.autoplay,
     muted: reel.muted,
@@ -105,7 +170,7 @@ const normalizeReelSectionForForm = (reel?: ProjectReelSection): ProjectReelSect
 
 function sectionHasContent(key: SectionKey, data: {
   overviewTitle: string; desc: string; challenge: string; approach: string; impact: string; compliance: string;
-  processSteps: ProjectProcessStep[]; stats: ProjectStat[]; galleryUrls: string[]; reelSection: ProjectReelSection; videoType: string; videoUrl: string;
+  processSteps: ProjectProcessStep[]; stats: ProjectStat[]; galleryUrls: string[]; reelSection: ProjectReelSection; videoType: ProjectVideoSource; videoUrl: string;
 }) {
   switch (key) {
     case "overview": return [data.overviewTitle, data.desc, data.challenge, data.approach, data.impact, data.compliance].some(textHasContent);
@@ -113,7 +178,7 @@ function sectionHasContent(key: SectionKey, data: {
     case "impact": return data.stats.some((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent));
     case "gallery": return data.galleryUrls.some(textHasContent);
     case "reel": return data.reelSection.enabled && data.reelSection.items.some((item) => item.enabled && textHasContent(item.videoUrl));
-    case "videoShowcase": return data.videoType !== "none" && textHasContent(data.videoUrl);
+    case "videoShowcase": return textHasContent(data.videoUrl);
     case "relatedProjects": return false;
   }
 }
@@ -143,7 +208,7 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
 
 function EditProjectLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       <div className="flex items-center gap-4">
         <div className="h-9 w-9 rounded-full bg-[#0F1629] animate-pulse" />
         <div className="h-8 w-64 rounded bg-[#0F1629] animate-pulse" />
@@ -211,7 +276,7 @@ function EditProjectContent({ id }: { id: string }) {
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
 
 
-  const [videoType, setVideoType] = useState("none");
+  const [videoType, setVideoType] = useState<ProjectVideoSource>("upload");
   const [videoUrl, setVideoUrl] = useState("");
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
@@ -273,7 +338,7 @@ function EditProjectContent({ id }: { id: string }) {
           setFeedbacks(found.feedback || []);
           setStatus(found.status || "published");
           setSequence(found.sequence !== undefined ? String(found.sequence) : "");
-          setVideoType(found.video_type || "none");
+          setVideoType(normalizeVideoSource(found.video_source || found.video_type, found.video_url));
           setVideoUrl(found.video_url || "");
           setIndustry(found.industry || "");
           setSprint(found.sprint || "");
@@ -287,7 +352,7 @@ function EditProjectContent({ id }: { id: string }) {
           setProcessSteps(loadedProcess);
           const normalizedReel = normalizeReelSectionForForm(found.reelSection);
           setReelSection(normalizedReel);
-          setSectionVisibility(normalizeVisibility(found, { overviewTitle: found.overview_title || "", desc: found.desc || "", challenge: found.challenge || "", approach: found.approach || "", impact: found.impact || "", compliance: found.compliance || "", processSteps: loadedProcess, stats: found.stats || [], galleryUrls: found.gallery || [], reelSection: normalizedReel, videoType: found.video_type || "none", videoUrl: found.video_url || "" }));
+          setSectionVisibility(normalizeVisibility(found, { overviewTitle: found.overview_title || "", desc: found.desc || "", challenge: found.challenge || "", approach: found.approach || "", impact: found.impact || "", compliance: found.compliance || "", processSteps: loadedProcess, stats: found.stats || [], galleryUrls: found.gallery || [], reelSection: normalizedReel, videoType: normalizeVideoSource(found.video_source || found.video_type, found.video_url), videoUrl: found.video_url || "" }));
         }
       } catch (err) {
         console.error("Failed to load project details:", err);
@@ -306,7 +371,6 @@ function EditProjectContent({ id }: { id: string }) {
   const setSectionEnabled = (key: SectionKey, enabled: boolean) => {
     setSectionVisibility((current) => ({ ...current, [key]: enabled }));
     if (key === "reel") setReelSection((current) => ({ ...current, enabled }));
-    if (key === "videoShowcase" && !enabled && videoType === "none") setVideoUrl(videoUrl);
   };
 
   const openSectionDialog = (key: SectionKey) => {
@@ -420,14 +484,19 @@ function EditProjectContent({ id }: { id: string }) {
 
   const validateReelSection = (section: ProjectReelSection) => {
     const errors: Record<string, string> = {};
-    if (section.enabled && !section.items.some((item) => item.enabled && textHasContent(item.videoUrl))) {
-      errors.__section = "Show Reel Section is on. Add at least one enabled Reel with a video URL, or hide the section.";
+    const enabledItems = section.items.filter((item) => item.enabled);
+    const validEnabledItems = enabledItems.filter((item) => !getVideoSourceValidationError(normalizeVideoSource(item.videoSource, item.videoUrl), item.videoUrl));
+
+    if (section.enabled && validEnabledItems.length === 0) {
+      errors.__section = "Show Reel Section is on. Add at least one enabled Reel with a valid source URL or uploaded video, or hide the section.";
     }
-    for (const item of section.items) {
-      if (item.enabled && !textHasContent(item.videoUrl)) {
-        errors[item.id] = "Enabled Reel items require a video URL or uploaded video.";
-      }
+
+    for (const item of enabledItems) {
+      const source = normalizeVideoSource(item.videoSource, item.videoUrl);
+      const error = getVideoSourceValidationError(source, item.videoUrl);
+      if (error) errors[item.id] = error;
     }
+
     return errors;
   };
 
@@ -597,6 +666,11 @@ function EditProjectContent({ id }: { id: string }) {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isSupportedVideoFile(file)) {
+      alert("Please upload an MP4, WebM, MOV, or M4V video file.");
+      e.target.value = "";
+      return;
+    }
     setIsUploadingVideo(true);
     try {
       const service = getWorkspaceService();
@@ -607,6 +681,7 @@ function EditProjectContent({ id }: { id: string }) {
       alert("Video upload failed.");
     } finally {
       setIsUploadingVideo(false);
+      e.target.value = "";
     }
   };
 
@@ -683,10 +758,13 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
-    if (sectionVisibility.videoShowcase && (videoType === "none" || !videoUrl.trim())) {
-      setErrorMsg("Video Showcase requires a provider and video URL when enabled.");
-      openSectionDialog("videoShowcase");
-      return;
+    if (sectionVisibility.videoShowcase) {
+      const videoShowcaseError = getVideoSourceValidationError(videoType, videoUrl);
+      if (videoShowcaseError) {
+        setErrorMsg(`Video Showcase: ${videoShowcaseError}`);
+        openSectionDialog("videoShowcase");
+        return;
+      }
     }
 
     if (isUploadingThumb || isUploadingGallery || isUploadingVideo || reelUploadsActive) {
@@ -732,6 +810,7 @@ function EditProjectContent({ id }: { id: string }) {
           title: item.title?.trim() || undefined,
           description: item.description?.trim() || undefined,
           videoUrl: item.videoUrl.trim(),
+          videoSource: normalizeVideoSource(item.videoSource, item.videoUrl),
           posterUrl: item.posterUrl?.trim() || undefined,
           autoplay: item.autoplay ?? false,
           muted: item.autoplay ? true : (item.muted ?? true),
@@ -830,9 +909,9 @@ function EditProjectContent({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
+      <div className="flex flex-col gap-3 border-b border-[#1E2D47] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link href="/portfolio">
             <Button
@@ -863,9 +942,9 @@ function EditProjectContent({ id }: { id: string }) {
       )}
 
       {/* Main Form Layout */}
-      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form onSubmit={handleSave} className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Left Form Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           {/* Section 1: Basic Information */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
@@ -1143,13 +1222,13 @@ function EditProjectContent({ id }: { id: string }) {
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
               Project Detail Sections
             </h2>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="portfolio-section-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
               <SectionCard title="Overview" enabled={sectionVisibility.overview} onToggle={(checked) => setSectionEnabled("overview", checked)} summary={sectionHasContent("overview", { overviewTitle, desc, challenge, approach, impact, compliance, processSteps, stats, galleryUrls, reelSection, videoType, videoUrl }) ? "Overview copy and detail cards saved" : "No overview content yet"} buttonLabel="Edit Overview" onEdit={() => openSectionDialog("overview")} />
               <SectionCard title="From Discovery to Deployment" enabled={sectionVisibility.process} onToggle={(checked) => setSectionEnabled("process", checked)} summary={`${processSteps.filter((step) => [step.phase, step.title, step.description].some(textHasContent)).length} process steps saved`} buttonLabel="Edit Process" onEdit={() => openSectionDialog("process")} />
               <SectionCard title="Impact / Key Results" enabled={sectionVisibility.impact} onToggle={(checked) => setSectionEnabled("impact", checked)} summary={`${stats.filter((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent)).length} result cards saved`} buttonLabel="Edit Impact" onEdit={() => openSectionDialog("impact")} />
               <SectionCard title="Gallery" enabled={sectionVisibility.gallery} onToggle={(checked) => setSectionEnabled("gallery", checked)} summary={`${galleryUrls.filter(Boolean).length} gallery images saved`} buttonLabel="Edit Gallery" onEdit={() => openSectionDialog("gallery")} />
               <SectionCard title="Project Reel" enabled={sectionVisibility.reel || reelSection.enabled} onToggle={(checked) => setSectionEnabled("reel", checked)} summary={`${reelSection.items.filter((item) => item.videoUrl).length} reel${reelSection.items.filter((item) => item.videoUrl).length === 1 ? "" : "s"} configured`} buttonLabel="Edit Reels" onEdit={() => openSectionDialog("reel")} />
-              <SectionCard title="Video Showcase" enabled={sectionVisibility.videoShowcase} onToggle={(checked) => setSectionEnabled("videoShowcase", checked)} summary={videoType !== "none" && videoUrl ? `${videoType} video configured` : "No showcase video yet"} buttonLabel="Edit Video" onEdit={() => openSectionDialog("videoShowcase")} />
+              <SectionCard title="Video Showcase" enabled={sectionVisibility.videoShowcase} onToggle={(checked) => setSectionEnabled("videoShowcase", checked)} summary={videoUrl ? `${VIDEO_SOURCE_OPTIONS.find((option) => option.value === videoType)?.label || "Video"} configured` : "No showcase video yet"} buttonLabel="Edit Video" onEdit={() => openSectionDialog("videoShowcase")} />
               <SectionCard title="Related Projects" enabled={sectionVisibility.relatedProjects} onToggle={(checked) => setSectionEnabled("relatedProjects", checked)} summary="Related project selection is not configured in this backend yet" buttonLabel="Edit Related" onEdit={() => openSectionDialog("relatedProjects")} />
             </div>
             <p className="text-[11px] text-slate-500">Disabled sections keep their saved content but are omitted from the public project payload.</p>
@@ -1157,7 +1236,7 @@ function EditProjectContent({ id }: { id: string }) {
         </div>
 
         {/* Right Sidebar */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Settings Card */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6 text-white">
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
@@ -1494,13 +1573,45 @@ function EditProjectContent({ id }: { id: string }) {
                             <Input value={item.posterUrl || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, posterUrl: event.target.value }))} placeholder="Poster image URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
                             <Textarea value={item.description || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, description: event.target.value }))} placeholder="Description" className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2 min-h-[80px]" />
                           </div>
-                          <Input value={item.videoUrl || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, videoUrl: event.target.value }))} placeholder="Paste a direct MP4, WebM, MOV, or M4V URL" className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Video Source</Label>
+                              <Select value={normalizeVideoSource(item.videoSource, item.videoUrl)} onValueChange={(value) => {
+                                const nextSource = normalizeVideoSource(value);
+                                updateReelDraftItem(item.id, (current) => {
+                                  const currentSource = normalizeVideoSource(current.videoSource, current.videoUrl);
+                                  const sourceChanged = currentSource !== nextSource;
+                                  const preserveUploadUrl = nextSource === "upload" && currentSource === "upload" && isUploadedProjectVideoUrl(current.videoUrl);
+                                  const shouldClearVideoUrl = sourceChanged || (nextSource === "upload" && !preserveUploadUrl);
+                                  return {
+                                    ...current,
+                                    videoSource: nextSource,
+                                    videoUrl: shouldClearVideoUrl ? "" : current.videoUrl,
+                                  };
+                                });
+                                if (nextSource !== "upload") {
+                                  setReelUploadState((current) => ({ ...current, [item.id]: { ...current[item.id], videoUploading: false } }));
+                                }
+                              }}>
+                                <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
+                                <SelectContent side="bottom" align="start" alignItemWithTrigger={false} sideOffset={6} className="portfolio-video-source-menu z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
+                                  {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {normalizeVideoSource(item.videoSource, item.videoUrl) !== "upload" && (
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{VIDEO_SOURCE_OPTIONS.find((option) => option.value === normalizeVideoSource(item.videoSource, item.videoUrl))?.urlLabel || "Video URL"}</Label>
+                                <Input value={item.videoUrl || ""} onChange={(event) => updateReelDraftItem(item.id, (current) => ({ ...current, videoUrl: event.target.value }))} placeholder="https://..." className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id={`reel-video-upload-${item.id}`} className="hidden" onChange={(event) => handleReelItemVideoUpload(item.id, event)} disabled={uploadState.videoUploading} />
-                            <Button type="button" onClick={() => document.getElementById(`reel-video-upload-${item.id}`)?.click()} disabled={uploadState.videoUploading} className="bg-[#1E2D47] text-xs">{uploadState.videoUploading ? "Uploading..." : item.videoUrl ? "Replace Video" : "Upload Video"}</Button>
+                            {normalizeVideoSource(item.videoSource, item.videoUrl) === "upload" && <Button type="button" onClick={() => document.getElementById(`reel-video-upload-${item.id}`)?.click()} disabled={uploadState.videoUploading} className="bg-[#1E2D47] text-xs">{uploadState.videoUploading ? "Uploading video..." : item.videoUrl ? "Replace Video" : "Upload Video"}</Button>}
                             {item.videoUrl && <Button type="button" onClick={() => updateReelDraftItem(item.id, (current) => ({ ...current, videoUrl: "" }))} className="bg-red-600 hover:bg-red-700 text-white text-xs"><Trash2 className="h-3 w-3" />Clear Video</Button>}
                             <input type="file" accept="image/*" id={`reel-poster-upload-${item.id}`} className="hidden" onChange={(event) => handleReelItemPosterUpload(item.id, event)} disabled={uploadState.posterUploading} />
-                            <Button type="button" onClick={() => document.getElementById(`reel-poster-upload-${item.id}`)?.click()} disabled={uploadState.posterUploading} className="bg-[#1E2D47] text-xs">{uploadState.posterUploading ? "Uploading..." : "Upload Poster"}</Button>
+                            <Button type="button" onClick={() => document.getElementById(`reel-poster-upload-${item.id}`)?.click()} disabled={uploadState.posterUploading} className="bg-[#1E2D47] text-xs">{uploadState.posterUploading ? "Uploading poster..." : "Upload Poster"}</Button>
                           </div>
                           <div className="flex flex-wrap gap-3 rounded-md border border-[#1E2D47] bg-[#07090F]/50 p-3">
                             {[{label: "Autoplay", checked: item.autoplay ?? false, key: "autoplay" as const}, {label: "Muted", checked: item.autoplay ? true : (item.muted ?? true), key: "muted" as const, disabled: item.autoplay}, {label: "Loop", checked: item.loop ?? true, key: "loop" as const}].map((control) => (
@@ -1510,9 +1621,7 @@ function EditProjectContent({ id }: { id: string }) {
                         </div>
                         <div className="mx-auto w-full max-w-[220px]">
                           <Label className="mb-2 block text-xs font-semibold text-slate-300">Preview</Label>
-                          <div className="aspect-[9/16] w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black">
-                            {item.videoUrl ? <video src={item.videoUrl} poster={item.posterUrl || undefined} controls muted={item.autoplay || item.muted} loop={item.loop} preload="metadata" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500">Paste a reel link or upload a video.</div>}
-                          </div>
+                          <VideoPreview source={normalizeVideoSource(item.videoSource, item.videoUrl)} videoUrl={item.videoUrl} posterUrl={item.posterUrl} autoplay={item.autoplay} muted={item.muted} loop={item.loop} aspectClassName="aspect-[9/16]" emptyText="Choose a source and add or upload a reel video." />
                         </div>
                       </div>
                     </div>
@@ -1525,12 +1634,98 @@ function EditProjectContent({ id }: { id: string }) {
       </PortfolioSectionDialog>
 
       <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4"><Select value={videoType} onValueChange={(val) => { const safeVal = val ?? "none"; setVideoType(safeVal); if (safeVal === "none") setVideoUrl(""); }}><SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="No Video" /></SelectTrigger><SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white"><SelectItem value="none">No Video</SelectItem><SelectItem value="youtube">YouTube</SelectItem><SelectItem value="vimeo">Vimeo</SelectItem><SelectItem value="upload">Upload Video File</SelectItem></SelectContent></Select><Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" readOnly={videoType === "upload"} className="border-[#1E2D47] bg-[#07090F] text-white text-xs md:col-span-2" /></div><input type="file" accept="video/*" id="video-upload-dialog" className="hidden" onChange={handleVideoUpload} disabled={isUploadingVideo} />{videoType === "upload" && <Button type="button" onClick={() => document.getElementById('video-upload-dialog')?.click()} disabled={isUploadingVideo} className="bg-[#1E2D47] text-xs">Upload Video</Button>}
+        <div className="portfolio-video-dialog-layout">
+          <div className="portfolio-video-dialog-form space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Video Source</Label>
+                <Select value={videoType} onValueChange={(value) => setVideoType(normalizeVideoSource(value))}>
+                  <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
+                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false} sideOffset={6} className="portfolio-video-source-menu z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
+                    {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {videoType !== "upload" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-300">{VIDEO_SOURCE_OPTIONS.find((option) => option.value === videoType)?.urlLabel || "Video URL"}</Label>
+                  <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://..." className="border-[#1E2D47] bg-[#07090F] text-white text-xs font-mono" />
+                </div>
+              )}
+            </div>
+            <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" id="video-upload-dialog" className="hidden" onChange={handleVideoUpload} disabled={isUploadingVideo} />
+            {videoType === "upload" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" onClick={() => document.getElementById('video-upload-dialog')?.click()} disabled={isUploadingVideo} className="bg-[#1E2D47] text-xs">{isUploadingVideo ? "Uploading video..." : videoUrl ? "Replace Video" : "Upload Video"}</Button>
+                {videoUrl && <Button type="button" onClick={() => setVideoUrl("")} className="bg-red-600 hover:bg-red-700 text-white text-xs"><Trash2 className="h-3 w-3" />Clear Video</Button>}
+                <span className="text-[11px] text-slate-500">MP4, MOV, WEBM, or M4V.</span>
+              </div>
+            )}
+          </div>
+          <div className="portfolio-video-dialog-preview">
+            <Label className="mb-2 block text-xs font-semibold text-slate-300">Preview</Label>
+            <VideoPreview source={videoType} videoUrl={videoUrl} aspectClassName="portfolio-video-preview" emptyText="Choose a source and add or upload a showcase video." />
+          </div>
+        </div>
       </PortfolioSectionDialog>
 
       <PortfolioSectionDialog open={activeDialog === "relatedProjects"} title="Edit Related Projects" description="This project schema does not currently include related-project selections; the visibility setting is saved for forward compatibility." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done"><p className="text-xs text-slate-400">No related project picker is available in the existing API, so this dialog preserves the section toggle without adding new routes or backend modules.</p></PortfolioSectionDialog>
 
     </div>
+  );
+}
+
+function VideoPreview({ source, videoUrl, posterUrl, autoplay, muted, loop, aspectClassName = "aspect-video", emptyText }: { source: ProjectVideoSource; videoUrl?: string; posterUrl?: string; autoplay?: boolean; muted?: boolean; loop?: boolean; aspectClassName?: string; emptyText: string }) {
+  const url = videoUrl?.trim() || "";
+  const frameClassName = `${aspectClassName} w-full overflow-hidden rounded-2xl border border-[#1E2D47] bg-black`;
+
+  if (!url) {
+    return <div className={`${frameClassName} flex items-center justify-center px-4 text-center text-xs text-slate-500`}>{emptyText}</div>;
+  }
+
+  if (source === "youtube") {
+    return (
+      <iframe
+        src={getYoutubeEmbedUrl(url)}
+        title="YouTube video preview"
+        className={frameClassName}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (source === "vimeo") {
+    return (
+      <iframe
+        src={getVimeoEmbedUrl(url)}
+        title="Vimeo video preview"
+        className={frameClassName}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (source === "external" && !/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url)) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className={`${frameClassName} flex flex-col items-center justify-center gap-3 px-4 text-center text-xs text-slate-400 hover:text-white`}>
+        <LinkIcon className="h-8 w-8 text-[#38BDF8]" />
+        <span className="break-all">Open external video preview</span>
+      </a>
+    );
+  }
+
+  return (
+    <video
+      src={url}
+      poster={posterUrl || undefined}
+      controls
+      muted={autoplay || muted}
+      loop={loop}
+      preload="metadata"
+      className={`${frameClassName} object-cover`}
+    />
   );
 }
 
@@ -1559,15 +1754,15 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
 function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
-      <DialogContent className="portfolio-section-dialog flex h-[min(80vh,900px)] w-[min(80vw,1200px)] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none max-sm:h-[90vh] max-sm:w-[94vw]" showCloseButton>
-        <DialogHeader className="portfolio-section-dialog-header sticky top-0 z-10 border-b border-[#1E2D47] bg-[#0F1629] px-5 py-4 pr-12">
-          <DialogTitle className="text-base font-bold text-white">{title}</DialogTitle>
-          <DialogDescription className="text-xs text-slate-400">{description}</DialogDescription>
+      <DialogContent className="portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none" showCloseButton>
+        <DialogHeader className="portfolio-section-dialog-header border-b border-[#1E2D47] bg-[#0F1629]">
+          <DialogTitle className="portfolio-section-dialog-title text-base font-bold text-white">{title}</DialogTitle>
+          <DialogDescription className="portfolio-section-dialog-description text-xs text-slate-400">{description}</DialogDescription>
         </DialogHeader>
-        <div className="portfolio-section-dialog-body min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="portfolio-section-dialog-body space-y-4">
           {children}
         </div>
-        <DialogFooter className="portfolio-section-dialog-footer sticky bottom-0 border-t border-[#1E2D47] bg-[#0F1629] px-5 py-4 sm:flex-row sm:justify-end">
+        <DialogFooter className="portfolio-section-dialog-footer border-t border-[#1E2D47] bg-[#0F1629]">
           <Button type="button" variant="outline" onClick={onCancel} className="border-[#1E2D47] text-slate-300 hover:bg-[#1E2D47]">Cancel</Button>
           <Button type="button" onClick={onSave} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white">{saveLabel}</Button>
         </DialogFooter>

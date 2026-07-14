@@ -175,12 +175,15 @@ export interface ProjectSectionVisibility {
   relatedProjects: boolean;
 }
 
+export type ProjectVideoSource = "upload" | "youtube" | "vimeo" | "direct" | "external";
+
 export interface ProjectReelItem {
   id: string;
   enabled: boolean;
   title?: string;
   description?: string;
   videoUrl: string;
+  videoSource?: ProjectVideoSource;
   posterUrl?: string;
   autoplay?: boolean;
   muted?: boolean;
@@ -281,6 +284,7 @@ export interface Project {
   sequence?: number;
   video_type?: string;
   video_url?: string;
+  video_source?: ProjectVideoSource;
   industry?: string;
   sprint?: string;
   client_logo?: string;
