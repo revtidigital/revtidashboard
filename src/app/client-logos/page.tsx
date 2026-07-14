@@ -120,7 +120,7 @@ export default function ClientLogosPage() {
 
   return (
     <LayoutShell>
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="website-content-container space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
