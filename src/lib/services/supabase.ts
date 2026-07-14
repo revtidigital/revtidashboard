@@ -76,6 +76,46 @@ export class SupabaseService implements IWorkspaceService {
     }
   }
 
+
+  private isDirectProjectVideoUrl(value: string): boolean {
+    return this.isValidUrlLike(value) && /\.(mp4|webm|mov|m4v)(?:$|[?#])/i.test(value.trim());
+  }
+
+  private isUploadedProjectVideoUrl(value: string): boolean {
+    return value.includes("/storage/v1/object/") && this.isDirectProjectVideoUrl(value);
+  }
+
+  private isYouTubeUrl(value: string): boolean {
+    return this.isValidUrlLike(value) && /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[A-Za-z0-9_-]{6,}/i.test(value.trim());
+  }
+
+  private isVimeoUrl(value: string): boolean {
+    return this.isValidUrlLike(value) && /vimeo\.com\/(?:video\/)?\d+/i.test(value.trim());
+  }
+
+  private assertProjectVideoUrlForSource(source: string | undefined, value: string | undefined, field: string): void {
+    if (!value?.trim()) return;
+    const resolvedSource = source || "upload";
+    if (!["upload", "youtube", "vimeo", "direct", "external"].includes(resolvedSource)) {
+      throw new Error(`Invalid project field: ${field} source is not supported.`);
+    }
+    if (resolvedSource === "upload" && !this.isUploadedProjectVideoUrl(value)) {
+      throw new Error(`Invalid project field: ${field} must be an uploaded Storage MP4, WebM, MOV, or M4V URL for upload source.`);
+    }
+    if (resolvedSource === "youtube" && !this.isYouTubeUrl(value)) {
+      throw new Error(`Invalid project field: ${field} must be a valid YouTube URL.`);
+    }
+    if (resolvedSource === "vimeo" && !this.isVimeoUrl(value)) {
+      throw new Error(`Invalid project field: ${field} must be a valid Vimeo URL.`);
+    }
+    if (resolvedSource === "direct" && !this.isDirectProjectVideoUrl(value)) {
+      throw new Error(`Invalid project field: ${field} must be a direct MP4, WebM, MOV, or M4V URL.`);
+    }
+    if (resolvedSource === "external") {
+      this.assertValidOptionalUrl(value, field);
+    }
+  }
+
   private assertProjectUploadFile(file: File): void {
     const maxBytes = 50 * 1024 * 1024;
     const allowedTypes = ["image/", "video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
@@ -766,7 +806,7 @@ export class SupabaseService implements IWorkspaceService {
 
   private assertProjectPayload(data: Partial<Project>): void {
     this.assertValidOptionalUrl(data.thumb, "thumb");
-    this.assertValidOptionalUrl(data.video_url, "video_url");
+    this.assertProjectVideoUrlForSource(data.video_type, data.video_url, "video_url");
     this.assertValidOptionalUrl(data.client_logo, "client_logo");
     for (const [index, url] of (data.gallery || []).entries()) {
       this.assertValidOptionalUrl(url, `gallery[${index}]`);
@@ -790,7 +830,7 @@ export class SupabaseService implements IWorkspaceService {
         if (item.description !== undefined && typeof item.description !== "string") throw new Error(`Invalid project field: reelSection.items[${index}].description must be a string.`);
         if (item.posterUrl) this.assertValidOptionalUrl(item.posterUrl, `reelSection.items[${index}].posterUrl`);
         if (item.videoSource !== undefined && !["upload", "youtube", "vimeo", "direct", "external"].includes(item.videoSource)) throw new Error(`Invalid project field: reelSection.items[${index}].videoSource is not supported.`);
-        if (item.videoUrl) this.assertValidOptionalUrl(item.videoUrl, `reelSection.items[${index}].videoUrl`);
+        if (item.videoUrl) this.assertProjectVideoUrlForSource(item.videoSource, item.videoUrl, `reelSection.items[${index}].videoUrl`);
         if (item.enabled && !item.videoUrl?.trim()) throw new Error(`Reel ${index + 1} requires a video URL when enabled.`);
         if (item.autoplay !== undefined) this.assertBoolean(item.autoplay, `reelSection.items[${index}].autoplay`);
         if (item.muted !== undefined) this.assertBoolean(item.muted, `reelSection.items[${index}].muted`);

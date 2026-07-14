@@ -79,6 +79,37 @@ const normalizeVideoSource = (source?: string | null, url?: string | null): Proj
   return "upload";
 };
 
+
+const isHttpUrl = (url?: string | null) => {
+  if (!url?.trim()) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const isDirectVideoUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /\.(mp4|webm|mov|m4v)(?:$|[?#])/i.test(url.trim()));
+const isUploadedProjectVideoUrl = (url?: string | null) => Boolean(url?.trim() && url.includes("/storage/v1/object/") && isDirectVideoUrl(url));
+const isValidYouTubeUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[A-Za-z0-9_-]{6,}/i.test(url.trim()));
+const isValidVimeoUrl = (url?: string | null) => Boolean(url?.trim() && isHttpUrl(url) && /vimeo\.com\/(?:video\/)?\d+/i.test(url.trim()));
+
+const getVideoSourceValidationError = (source: ProjectVideoSource, url?: string | null) => {
+  switch (source) {
+    case "upload":
+      return isUploadedProjectVideoUrl(url) ? null : "Upload Video requires a completed Storage upload. Upload a video file before saving.";
+    case "youtube":
+      return isValidYouTubeUrl(url) ? null : "Enter a valid YouTube URL for this Reel.";
+    case "vimeo":
+      return isValidVimeoUrl(url) ? null : "Enter a valid Vimeo URL for this Reel.";
+    case "direct":
+      return isDirectVideoUrl(url) ? null : "Enter a direct MP4, WebM, MOV, or M4V video URL.";
+    case "external":
+      return isHttpUrl(url) ? null : "Enter a valid external video URL.";
+  }
+};
+
 const getYoutubeEmbedUrl = (url: string) => {
   const trimmed = url.trim();
   const match = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
@@ -453,14 +484,19 @@ function EditProjectContent({ id }: { id: string }) {
 
   const validateReelSection = (section: ProjectReelSection) => {
     const errors: Record<string, string> = {};
-    if (section.enabled && !section.items.some((item) => item.enabled && textHasContent(item.videoUrl))) {
-      errors.__section = "Show Reel Section is on. Add at least one enabled Reel with a video URL, or hide the section.";
+    const enabledItems = section.items.filter((item) => item.enabled);
+    const validEnabledItems = enabledItems.filter((item) => !getVideoSourceValidationError(normalizeVideoSource(item.videoSource, item.videoUrl), item.videoUrl));
+
+    if (section.enabled && validEnabledItems.length === 0) {
+      errors.__section = "Show Reel Section is on. Add at least one enabled Reel with a valid source URL or uploaded video, or hide the section.";
     }
-    for (const item of section.items) {
-      if (item.enabled && !textHasContent(item.videoUrl)) {
-        errors[item.id] = "Enabled Reel items require a video URL or uploaded video.";
-      }
+
+    for (const item of enabledItems) {
+      const source = normalizeVideoSource(item.videoSource, item.videoUrl);
+      const error = getVideoSourceValidationError(source, item.videoUrl);
+      if (error) errors[item.id] = error;
     }
+
     return errors;
   };
 
@@ -722,10 +758,13 @@ function EditProjectContent({ id }: { id: string }) {
       return;
     }
 
-    if (sectionVisibility.videoShowcase && !videoUrl.trim()) {
-      setErrorMsg("Video Showcase requires a provider and video URL when enabled.");
-      openSectionDialog("videoShowcase");
-      return;
+    if (sectionVisibility.videoShowcase) {
+      const videoShowcaseError = getVideoSourceValidationError(videoType, videoUrl);
+      if (videoShowcaseError) {
+        setErrorMsg(`Video Showcase: ${videoShowcaseError}`);
+        openSectionDialog("videoShowcase");
+        return;
+      }
     }
 
     if (isUploadingThumb || isUploadingGallery || isUploadingVideo || reelUploadsActive) {
@@ -1537,7 +1576,23 @@ function EditProjectContent({ id }: { id: string }) {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                               <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Video Source</Label>
-                              <Select value={normalizeVideoSource(item.videoSource, item.videoUrl)} onValueChange={(value) => updateReelDraftItem(item.id, (current) => ({ ...current, videoSource: normalizeVideoSource(value), videoUrl: value === "upload" ? current.videoUrl : current.videoUrl }))}>
+                              <Select value={normalizeVideoSource(item.videoSource, item.videoUrl)} onValueChange={(value) => {
+                                const nextSource = normalizeVideoSource(value);
+                                updateReelDraftItem(item.id, (current) => {
+                                  const currentSource = normalizeVideoSource(current.videoSource, current.videoUrl);
+                                  const sourceChanged = currentSource !== nextSource;
+                                  const preserveUploadUrl = nextSource === "upload" && currentSource === "upload" && isUploadedProjectVideoUrl(current.videoUrl);
+                                  const shouldClearVideoUrl = sourceChanged || (nextSource === "upload" && !preserveUploadUrl);
+                                  return {
+                                    ...current,
+                                    videoSource: nextSource,
+                                    videoUrl: shouldClearVideoUrl ? "" : current.videoUrl,
+                                  };
+                                });
+                                if (nextSource !== "upload") {
+                                  setReelUploadState((current) => ({ ...current, [item.id]: { ...current[item.id], videoUploading: false } }));
+                                }
+                              }}>
                                 <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
                                 <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
                                   {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
