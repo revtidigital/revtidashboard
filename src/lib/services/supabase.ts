@@ -251,13 +251,14 @@ export class SupabaseService implements IWorkspaceService {
         *,
         category:document_categories(*),
         creator:users!documents_created_by_fkey(*),
-        updater:users!documents_updated_by_fkey(*),
-        parent:documents!documents_parent_id_fkey(id, title)
+        updater:users!documents_updated_by_fkey(*)
       `)
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const docs = (data || []) as DocumentWithRelations[];
-    // Attach direct children to each parent (single pass, no extra round-trip).
+    // Resolve parent/children in JS so we don't depend on a specific FK
+    // constraint name in PostgREST embeds.
+    const byId = new Map(docs.map((d) => [d.id, d]));
     const childrenByParent = new Map<string, Array<{ id: string; title: string; status: Document["status"] }>>();
     for (const d of docs) {
       if (d.parent_id) {
@@ -268,6 +269,8 @@ export class SupabaseService implements IWorkspaceService {
     }
     for (const d of docs) {
       d.children = childrenByParent.get(d.id) || [];
+      const p = d.parent_id ? byId.get(d.parent_id) : null;
+      d.parent = p ? { id: p.id, title: p.title } : null;
     }
     return docs;
   }
@@ -279,14 +282,24 @@ export class SupabaseService implements IWorkspaceService {
         *,
         category:document_categories(*),
         creator:users!documents_created_by_fkey(*),
-        updater:users!documents_updated_by_fkey(*),
-        parent:documents!documents_parent_id_fkey(id, title)
+        updater:users!documents_updated_by_fkey(*)
       `)
       .eq("id", id)
       .single();
     if (error) return null;
 
     const doc = data as DocumentWithRelations;
+    // Resolve parent + children with plain queries (no FK-name-dependent embed).
+    if (doc.parent_id) {
+      const { data: parent } = await this.client
+        .from("documents")
+        .select("id, title")
+        .eq("id", doc.parent_id)
+        .single();
+      doc.parent = parent || null;
+    } else {
+      doc.parent = null;
+    }
     const { data: children } = await this.client
       .from("documents")
       .select("id, title, status")
