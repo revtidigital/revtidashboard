@@ -175,17 +175,25 @@ export interface ProjectSectionVisibility {
   relatedProjects: boolean;
 }
 
+export type ProjectVideoSource = "upload" | "youtube" | "vimeo" | "direct" | "external";
+
 export interface ProjectReelItem {
   id: string;
   enabled: boolean;
   title?: string;
   description?: string;
   videoUrl: string;
+  videoSource?: ProjectVideoSource;
   posterUrl?: string;
   autoplay?: boolean;
   muted?: boolean;
   loop?: boolean;
   displayOrder: number;
+}
+
+export interface ProjectVideoShowcase {
+  title?: string;
+  description?: string;
 }
 
 export interface ProjectReelSection {
@@ -281,6 +289,9 @@ export interface Project {
   sequence?: number;
   video_type?: string;
   video_url?: string;
+  video_source?: ProjectVideoSource;
+  videoShowcase?: ProjectVideoShowcase;
+  video_showcase?: ProjectVideoShowcase;
   industry?: string;
   sprint?: string;
   client_logo?: string;

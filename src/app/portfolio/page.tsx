@@ -13,6 +13,7 @@ import {
   User,
   Quote,
   Video,
+  LinkIcon,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -20,6 +21,7 @@ import {
   getWorkspaceService,
   Project,
   ProjectCategory,
+  ProjectVideoSource,
 } from "@/lib/services/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -47,6 +49,50 @@ import {
 } from "@/components/ui/dialog";
 
 // Categories are now loaded dynamically from the database
+const CAT_LABELS: Record<string, string> = {
+  web: "Web Dev",
+  mobile: "Mobile App",
+  brand: "Branding",
+};
+
+const normalizeVideoSource = (source?: string | null, url?: string | null): ProjectVideoSource => {
+  if (source === "upload" || source === "youtube" || source === "vimeo" || source === "direct" || source === "external") return source;
+  const lowerUrl = url?.toLowerCase() || "";
+  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) return "youtube";
+  if (lowerUrl.includes("vimeo.com")) return "vimeo";
+  if (/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(lowerUrl)) return "direct";
+  return "external";
+};
+
+const getYoutubeEmbedUrl = (url: string) => {
+  const trimmed = url.trim();
+  const match = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : trimmed;
+};
+
+const getVimeoEmbedUrl = (url: string) => {
+  const trimmed = url.trim();
+  const match = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return match ? `https://player.vimeo.com/video/${match[1]}` : trimmed;
+};
+
+function PortfolioVideoPreview({ source, videoUrl, posterUrl, autoplay, muted, loop }: { source?: ProjectVideoSource; videoUrl: string; posterUrl?: string; autoplay?: boolean; muted?: boolean; loop?: boolean }) {
+  const resolvedSource = normalizeVideoSource(source, videoUrl);
+
+  if (resolvedSource === "youtube") {
+    return <iframe src={getYoutubeEmbedUrl(videoUrl)} title="YouTube reel preview" className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />;
+  }
+
+  if (resolvedSource === "vimeo") {
+    return <iframe src={getVimeoEmbedUrl(videoUrl)} title="Vimeo reel preview" className="h-full w-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />;
+  }
+
+  if (resolvedSource === "external" && !/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(videoUrl)) {
+    return <a href={videoUrl} target="_blank" rel="noreferrer" className="flex h-full w-full flex-col items-center justify-center gap-2 px-3 text-center text-[11px] text-slate-400 hover:text-white"><LinkIcon className="h-6 w-6 text-[#38BDF8]" />Open external video</a>;
+  }
+
+  return <video src={videoUrl} poster={posterUrl || undefined} controls muted={autoplay || muted} loop={loop} preload="metadata" className="h-full w-full object-cover" />;
+}
 
 export default function PortfolioPage() {
   return (
@@ -60,7 +106,7 @@ export default function PortfolioPage() {
 
 function PortfolioLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       <div className="space-y-2">
         <div className="h-8 w-48 rounded bg-[#0F1629] animate-pulse" />
         <div className="h-4 w-96 rounded bg-[#0F1629] animate-pulse" />
@@ -190,7 +236,7 @@ function PortfolioContent() {
   });
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="portfolio-form-container flex flex-col gap-8">
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -257,7 +303,7 @@ function PortfolioContent() {
             <p className="text-xs text-slate-500 mt-1">Try resetting your search filters or add a new project.</p>
           </div>
         ) : (
-          <Table>
+          <div className="table-scroll"><Table>
             <TableHeader className="border-b border-[#1E2D47] bg-[#0A0E1A]">
               <TableRow className="border-[#1E2D47] hover:bg-transparent">
                 <TableHead className="text-[#94A3B8] font-semibold pl-6 w-[280px]">Project</TableHead>
@@ -367,7 +413,7 @@ function PortfolioContent() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></div>
         )}
       </Card>
 
@@ -530,7 +576,7 @@ function PortfolioContent() {
                         {visibleReels.map((reel) => (
                           <div key={reel.id} className="space-y-2 rounded-xl border border-[#1E2D47] bg-[#07090F]/40 p-3">
                             <div className="aspect-[9/16] overflow-hidden rounded-xl border border-[#1E2D47] bg-black">
-                              <video src={reel.videoUrl} poster={reel.posterUrl || undefined} controls muted={reel.autoplay || reel.muted} loop={reel.loop} preload="metadata" className="h-full w-full object-cover" />
+                              <PortfolioVideoPreview source={reel.videoSource} videoUrl={reel.videoUrl} posterUrl={reel.posterUrl} autoplay={reel.autoplay} muted={reel.muted} loop={reel.loop} />
                             </div>
                             {reel.title && <p className="text-xs font-semibold text-white">{reel.title}</p>}
                             {reel.description && <p className="text-[11px] leading-relaxed text-slate-400 whitespace-pre-line">{reel.description}</p>}

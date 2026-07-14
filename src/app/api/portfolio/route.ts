@@ -46,7 +46,15 @@ const hasOverviewContent = (project: Project) => [project.overview_title, projec
 const hasProcessContent = (project: Project) => normalizeArray(project.process).some((step) => hasText(step.phase) || hasText(step.title) || hasText(step.description));
 const hasImpactContent = (project: Project) => normalizeArray(project.stats).some((stat) => hasText(stat.num) || hasText(stat.label) || hasText(stat.before) || hasText(stat.after));
 const hasGalleryContent = (project: Project) => normalizeArray(project.gallery).some(hasText);
-const hasVideoShowcaseContent = (project: Project) => project.video_type && project.video_type !== "none" && hasText(project.video_url);
+const hasVideoShowcaseContent = (project: Project) => hasText(project.video_url);
+const normalizeVideoSource = (source?: string | null, url?: string | null) => {
+  if (["upload", "youtube", "vimeo", "direct", "external"].includes(source || "")) return source;
+  const lowerUrl = url?.toLowerCase() || "";
+  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) return "youtube";
+  if (lowerUrl.includes("vimeo.com")) return "vimeo";
+  if (/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(lowerUrl)) return source === "upload" ? "upload" : "direct";
+  return "external";
+};
 
 const sectionEnabled = (project: Project, key: keyof NonNullable<Project["section_visibility"]>, hasContent: boolean) => {
   const explicit = project.section_visibility?.[key];
@@ -73,6 +81,7 @@ const normalizeReelItems = (reel: Project["reelSection"]) => {
         title: reel.title,
         description: reel.description,
         videoUrl: reel.videoUrl,
+        videoSource: normalizeVideoSource(reel.items?.[0]?.videoSource, reel.videoUrl),
         posterUrl: reel.posterUrl,
         autoplay: reel.autoplay,
         muted: reel.muted,
@@ -88,6 +97,7 @@ const normalizeReelItems = (reel: Project["reelSection"]) => {
       title: item.title || undefined,
       description: item.description || undefined,
       videoUrl: item.videoUrl || "",
+      videoSource: normalizeVideoSource(item.videoSource, item.videoUrl),
       posterUrl: item.posterUrl || undefined,
       autoplay: item.autoplay ?? false,
       muted: item.autoplay ? true : (item.muted ?? true),
@@ -109,6 +119,20 @@ const normalizeReelSection = (project: Project) => {
   };
 };
 
+
+const normalizeVideoShowcase = (project: Project) => {
+  const video = compactObject({
+    title: trim(project.videoShowcase?.title || project.video_showcase?.title),
+    description: trim(project.videoShowcase?.description || project.video_showcase?.description),
+    ...(project.video_url ? {
+      type: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
+      source: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
+      url: trim(project.video_url),
+    } : {}),
+  });
+  return Object.keys(video).length > 0 ? video : undefined;
+};
+
 const toPublicProject = (project: Project) => ({
   id: project.id,
   cat: project.cat,
@@ -128,7 +152,9 @@ const toPublicProject = (project: Project) => ({
   sequence: project.sequence,
   created_at: project.created_at,
   video_type: project.video_type,
+  video_source: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
   video_url: project.video_url,
+  videoShowcase: normalizeVideoShowcase(project),
   industry: project.industry,
   sprint: project.sprint,
   client_logo: project.client_logo,
@@ -211,9 +237,10 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
         before: trim(stat.before),
         after: trim(stat.after),
       })) : undefined,
-    video: visibility.videoShowcase && project.video_type && project.video_type !== "none" && project.video_url
-      ? { type: project.video_type, url: project.video_url }
+    video: visibility.videoShowcase && project.video_url
+      ? normalizeVideoShowcase(project)
       : undefined,
+    videoShowcase: visibility.videoShowcase && project.video_url ? normalizeVideoShowcase(project) : undefined,
     relatedWork: visibility.relatedProjects ? getRelatedProjects() : undefined,
   });
 };

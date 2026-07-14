@@ -133,7 +133,7 @@ export default function SiteSettingsPage() {
 
   return (
     <LayoutShell>
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="website-content-container space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 rounded-lg bg-[#0EA5E9]/10 border border-[#0EA5E9]/20">
