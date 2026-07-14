@@ -60,7 +60,7 @@ export default function PortfolioPage() {
 
 function PortfolioLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       <div className="space-y-2">
         <div className="h-8 w-48 rounded bg-[#0F1629] animate-pulse" />
         <div className="h-4 w-96 rounded bg-[#0F1629] animate-pulse" />
@@ -190,7 +190,7 @@ function PortfolioContent() {
   });
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="portfolio-form-container flex flex-col gap-8">
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -257,7 +257,7 @@ function PortfolioContent() {
             <p className="text-xs text-slate-500 mt-1">Try resetting your search filters or add a new project.</p>
           </div>
         ) : (
-          <Table>
+          <div className="table-scroll"><Table>
             <TableHeader className="border-b border-[#1E2D47] bg-[#0A0E1A]">
               <TableRow className="border-[#1E2D47] hover:bg-transparent">
                 <TableHead className="text-[#94A3B8] font-semibold pl-6 w-[280px]">Project</TableHead>
@@ -367,7 +367,7 @@ function PortfolioContent() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></div>
         )}
       </Card>
 

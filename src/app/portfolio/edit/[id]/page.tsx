@@ -143,7 +143,7 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
 
 function EditProjectLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       <div className="flex items-center gap-4">
         <div className="h-9 w-9 rounded-full bg-[#0F1629] animate-pulse" />
         <div className="h-8 w-64 rounded bg-[#0F1629] animate-pulse" />
@@ -830,9 +830,9 @@ function EditProjectContent({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="portfolio-form-container flex flex-col gap-6">
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-[#1E2D47] pb-4">
+      <div className="flex flex-col gap-3 border-b border-[#1E2D47] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link href="/portfolio">
             <Button
@@ -863,9 +863,9 @@ function EditProjectContent({ id }: { id: string }) {
       )}
 
       {/* Main Form Layout */}
-      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form onSubmit={handleSave} className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Left Form Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           {/* Section 1: Basic Information */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6">
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
@@ -1143,7 +1143,7 @@ function EditProjectContent({ id }: { id: string }) {
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
               Project Detail Sections
             </h2>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="portfolio-section-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
               <SectionCard title="Overview" enabled={sectionVisibility.overview} onToggle={(checked) => setSectionEnabled("overview", checked)} summary={sectionHasContent("overview", { overviewTitle, desc, challenge, approach, impact, compliance, processSteps, stats, galleryUrls, reelSection, videoType, videoUrl }) ? "Overview copy and detail cards saved" : "No overview content yet"} buttonLabel="Edit Overview" onEdit={() => openSectionDialog("overview")} />
               <SectionCard title="From Discovery to Deployment" enabled={sectionVisibility.process} onToggle={(checked) => setSectionEnabled("process", checked)} summary={`${processSteps.filter((step) => [step.phase, step.title, step.description].some(textHasContent)).length} process steps saved`} buttonLabel="Edit Process" onEdit={() => openSectionDialog("process")} />
               <SectionCard title="Impact / Key Results" enabled={sectionVisibility.impact} onToggle={(checked) => setSectionEnabled("impact", checked)} summary={`${stats.filter((stat) => [stat.num, stat.label, stat.before, stat.after].some(textHasContent)).length} result cards saved`} buttonLabel="Edit Impact" onEdit={() => openSectionDialog("impact")} />
@@ -1157,7 +1157,7 @@ function EditProjectContent({ id }: { id: string }) {
         </div>
 
         {/* Right Sidebar */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Settings Card */}
           <Card className="border-[#1E2D47] bg-[#0F1629] p-6 space-y-6 text-white">
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8] border-b border-[#1E2D47] pb-3">
@@ -1559,15 +1559,15 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
 function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
-      <DialogContent className="portfolio-section-dialog flex h-[min(80vh,900px)] w-[min(80vw,1200px)] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none max-sm:h-[90vh] max-sm:w-[94vw]" showCloseButton>
-        <DialogHeader className="portfolio-section-dialog-header sticky top-0 z-10 border-b border-[#1E2D47] bg-[#0F1629] px-5 py-4 pr-12">
-          <DialogTitle className="text-base font-bold text-white">{title}</DialogTitle>
-          <DialogDescription className="text-xs text-slate-400">{description}</DialogDescription>
+      <DialogContent className="portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none" showCloseButton>
+        <DialogHeader className="portfolio-section-dialog-header border-b border-[#1E2D47] bg-[#0F1629]">
+          <DialogTitle className="portfolio-section-dialog-title text-base font-bold text-white">{title}</DialogTitle>
+          <DialogDescription className="portfolio-section-dialog-description text-xs text-slate-400">{description}</DialogDescription>
         </DialogHeader>
-        <div className="portfolio-section-dialog-body min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="portfolio-section-dialog-body space-y-4">
           {children}
         </div>
-        <DialogFooter className="portfolio-section-dialog-footer sticky bottom-0 border-t border-[#1E2D47] bg-[#0F1629] px-5 py-4 sm:flex-row sm:justify-end">
+        <DialogFooter className="portfolio-section-dialog-footer border-t border-[#1E2D47] bg-[#0F1629]">
           <Button type="button" variant="outline" onClick={onCancel} className="border-[#1E2D47] text-slate-300 hover:bg-[#1E2D47]">Cancel</Button>
           <Button type="button" onClick={onSave} className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white">{saveLabel}</Button>
         </DialogFooter>
