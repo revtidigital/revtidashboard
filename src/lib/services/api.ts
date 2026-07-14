@@ -191,6 +191,11 @@ export interface ProjectReelItem {
   displayOrder: number;
 }
 
+export interface ProjectVideoShowcase {
+  title?: string;
+  description?: string;
+}
+
 export interface ProjectReelSection {
   enabled: boolean;
   title?: string;
@@ -285,6 +290,8 @@ export interface Project {
   video_type?: string;
   video_url?: string;
   video_source?: ProjectVideoSource;
+  videoShowcase?: ProjectVideoShowcase;
+  video_showcase?: ProjectVideoShowcase;
   industry?: string;
   sprint?: string;
   client_logo?: string;

@@ -278,6 +278,8 @@ function EditProjectContent({ id }: { id: string }) {
 
   const [videoType, setVideoType] = useState<ProjectVideoSource>("upload");
   const [videoUrl, setVideoUrl] = useState("");
+  const [videoShowcaseTitle, setVideoShowcaseTitle] = useState("");
+  const [videoShowcaseDescription, setVideoShowcaseDescription] = useState("");
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -340,6 +342,8 @@ function EditProjectContent({ id }: { id: string }) {
           setSequence(found.sequence !== undefined ? String(found.sequence) : "");
           setVideoType(normalizeVideoSource(found.video_source || found.video_type, found.video_url));
           setVideoUrl(found.video_url || "");
+          setVideoShowcaseTitle(found.videoShowcase?.title || found.video_showcase?.title || "");
+          setVideoShowcaseDescription(found.videoShowcase?.description || found.video_showcase?.description || "");
           setIndustry(found.industry || "");
           setSprint(found.sprint || "");
           setClientLogo(found.client_logo || "");
@@ -850,6 +854,10 @@ function EditProjectContent({ id }: { id: string }) {
       sequence: parsedSequence,
       video_type: videoType,
       video_url: videoUrl,
+      videoShowcase: {
+        title: videoShowcaseTitle.trim() || undefined,
+        description: videoShowcaseDescription.trim() || undefined,
+      },
       industry: industry.trim(),
       sprint: sprint.trim(),
       client_logo: clientLogo.trim(),
@@ -1636,6 +1644,16 @@ function EditProjectContent({ id }: { id: string }) {
       <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
         <div className="portfolio-video-dialog-layout">
           <div className="portfolio-video-dialog-form space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Title</Label>
+                <Input value={videoShowcaseTitle} onChange={(e) => setVideoShowcaseTitle(e.target.value)} placeholder="Optional Video Showcase title" className="border-[#1E2D47] bg-[#07090F] text-white text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-300">Description</Label>
+                <Textarea value={videoShowcaseDescription} onChange={(e) => setVideoShowcaseDescription(e.target.value)} placeholder="Optional description shown above the showcase video" className="border-[#1E2D47] bg-[#07090F] text-white text-xs min-h-[90px]" />
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-300">Video Source</Label>

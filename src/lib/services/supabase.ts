@@ -789,18 +789,20 @@ export class SupabaseService implements IWorkspaceService {
 
 
   private normalizeProjectRow(row: unknown): Project {
-    const record = row as Project & { reel_section?: Project["reelSection"] };
+    const record = row as Project & { reel_section?: Project["reelSection"]; video_showcase?: Project["videoShowcase"] };
     return {
       ...record,
       reelSection: record.reelSection || record.reel_section,
+      videoShowcase: record.videoShowcase || record.video_showcase,
     } as Project;
   }
 
   private toProjectDbPayload<T extends Partial<Project>>(data: T): Record<string, unknown> {
-    const { reelSection, ...rest } = data;
+    const { reelSection, videoShowcase, ...rest } = data;
     return {
       ...rest,
       ...(reelSection !== undefined ? { reel_section: reelSection } : {}),
+      ...(videoShowcase !== undefined ? { video_showcase: videoShowcase } : {}),
     };
   }
 
@@ -810,6 +812,10 @@ export class SupabaseService implements IWorkspaceService {
     this.assertValidOptionalUrl(data.client_logo, "client_logo");
     for (const [index, url] of (data.gallery || []).entries()) {
       this.assertValidOptionalUrl(url, `gallery[${index}]`);
+    }
+    if (data.videoShowcase !== undefined) {
+      if (data.videoShowcase.title !== undefined && typeof data.videoShowcase.title !== "string") throw new Error("Invalid project field: videoShowcase.title must be a string.");
+      if (data.videoShowcase.description !== undefined && typeof data.videoShowcase.description !== "string") throw new Error("Invalid project field: videoShowcase.description must be a string.");
     }
     if (data.status && data.status !== "draft" && data.status !== "published") {
       throw new Error("Invalid project field: status must be draft or published.");

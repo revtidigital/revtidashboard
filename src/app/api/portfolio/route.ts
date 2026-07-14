@@ -119,6 +119,20 @@ const normalizeReelSection = (project: Project) => {
   };
 };
 
+
+const normalizeVideoShowcase = (project: Project) => {
+  const video = compactObject({
+    title: trim(project.videoShowcase?.title || project.video_showcase?.title),
+    description: trim(project.videoShowcase?.description || project.video_showcase?.description),
+    ...(project.video_url ? {
+      type: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
+      source: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
+      url: trim(project.video_url),
+    } : {}),
+  });
+  return Object.keys(video).length > 0 ? video : undefined;
+};
+
 const toPublicProject = (project: Project) => ({
   id: project.id,
   cat: project.cat,
@@ -140,6 +154,7 @@ const toPublicProject = (project: Project) => ({
   video_type: project.video_type,
   video_source: normalizeVideoSource(project.video_source || project.video_type, project.video_url),
   video_url: project.video_url,
+  videoShowcase: normalizeVideoShowcase(project),
   industry: project.industry,
   sprint: project.sprint,
   client_logo: project.client_logo,
@@ -223,8 +238,9 @@ const toLegacyFrontendProject = (project: Project, categories: ProjectCategory[]
         after: trim(stat.after),
       })) : undefined,
     video: visibility.videoShowcase && project.video_url
-      ? { type: normalizeVideoSource(project.video_source || project.video_type, project.video_url), source: normalizeVideoSource(project.video_source || project.video_type, project.video_url), url: project.video_url }
+      ? normalizeVideoShowcase(project)
       : undefined,
+    videoShowcase: visibility.videoShowcase && project.video_url ? normalizeVideoShowcase(project) : undefined,
     relatedWork: visibility.relatedProjects ? getRelatedProjects() : undefined,
   });
 };
