@@ -1594,7 +1594,7 @@ function EditProjectContent({ id }: { id: string }) {
                                 }
                               }}>
                                 <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
-                                <SelectContent sideOffset={6} className="z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
+                                <SelectContent side="bottom" align="start" alignItemWithTrigger={false} sideOffset={6} className="portfolio-video-source-menu z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
                                   {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                                 </SelectContent>
                               </Select>
@@ -1641,7 +1641,7 @@ function EditProjectContent({ id }: { id: string }) {
                 <Label className="text-xs font-semibold text-slate-300">Video Source</Label>
                 <Select value={videoType} onValueChange={(value) => setVideoType(normalizeVideoSource(value))}>
                   <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
-                  <SelectContent sideOffset={6} className="z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
+                  <SelectContent side="bottom" align="start" alignItemWithTrigger={false} sideOffset={6} className="portfolio-video-source-menu z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
                     {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -1754,7 +1754,7 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
 function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave, dialogClassName }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void; dialogClassName?: string }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
-      <DialogContent className={`portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none ${dialogClassName || ""}`} showCloseButton>
+      <DialogContent className={`portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl ${dialogClassName || ""}`} showCloseButton>
         <DialogHeader className="portfolio-section-dialog-header border-b border-[#1E2D47] bg-[#0F1629]">
           <DialogTitle className="portfolio-section-dialog-title text-base font-bold text-white">{title}</DialogTitle>
           <DialogDescription className="portfolio-section-dialog-description text-xs text-slate-400">{description}</DialogDescription>

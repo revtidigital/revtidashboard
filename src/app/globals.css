@@ -191,6 +191,7 @@
   }
 
   .dashboard-page-shell {
+    --dashboard-sidebar-width: 16rem;
     overflow-x: hidden;
   }
 
@@ -281,7 +282,7 @@
     white-space: normal;
   }
 
-  .portfolio-section-dialog {
+  .portfolio-section-dialog.portfolio-section-dialog {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: min(80vw, 1280px);
@@ -291,11 +292,20 @@
     overflow: hidden;
   }
 
-  .portfolio-video-dialog {
-    width: min(72vw, 1080px);
+  .portfolio-video-dialog.portfolio-video-dialog {
+    width: min(68vw, 1040px);
     height: min(76dvh, 820px);
-    max-width: calc(100vw - 48px);
+    max-width: calc(100vw - 64px);
     max-height: calc(100dvh - 48px);
+    margin: auto;
+  }
+
+  .portfolio-video-source-menu {
+    width: var(--anchor-width);
+    min-width: var(--anchor-width);
+    max-width: min(var(--anchor-width), calc(100vw - 32px));
+    max-height: min(var(--available-height), 320px);
+    overflow-y: auto;
   }
 
   [data-slot="select-content"] {
@@ -351,27 +361,35 @@
     overflow-x: auto;
   }
 
+
+  @media (min-width: 1024px) {
+    .portfolio-video-dialog.portfolio-video-dialog {
+      left: calc(50% + (var(--dashboard-sidebar-width, 0px) / 2));
+    }
+  }
+
   @media (max-width: 1439px) {
-    .portfolio-section-dialog {
+    .portfolio-section-dialog.portfolio-section-dialog {
       width: min(82vw, 1150px);
       height: 82dvh;
     }
 
-    .portfolio-video-dialog {
-      width: min(78vw, 980px);
+    .portfolio-video-dialog.portfolio-video-dialog {
+      width: min(74vw, 940px);
       height: min(80dvh, 820px);
     }
   }
 
   @media (max-width: 1023px) {
-    .portfolio-section-dialog {
+    .portfolio-section-dialog.portfolio-section-dialog {
       width: 90vw;
       height: 88dvh;
     }
 
-    .portfolio-video-dialog {
-      width: min(90vw, 900px);
-      height: min(86dvh, 850px);
+    .portfolio-video-dialog.portfolio-video-dialog {
+      left: 50%;
+      width: min(88vw, 860px);
+      height: min(86dvh, 860px);
     }
   }
 
@@ -404,8 +422,8 @@
   }
 
   @media (max-width: 767px) {
-    .portfolio-section-dialog,
-    .portfolio-video-dialog {
+    .portfolio-section-dialog.portfolio-section-dialog,
+    .portfolio-video-dialog.portfolio-video-dialog {
       width: calc(100vw - 24px);
       height: calc(100dvh - 24px);
       max-width: none;
