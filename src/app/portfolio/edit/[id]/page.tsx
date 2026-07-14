@@ -1633,9 +1633,9 @@ function EditProjectContent({ id }: { id: string }) {
         )}
       </PortfolioSectionDialog>
 
-      <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done" dialogClassName="portfolio-video-dialog">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-5">
-          <div className="space-y-4">
+      <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+        <div className="portfolio-video-dialog-layout">
+          <div className="portfolio-video-dialog-form space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-300">Video Source</Label>
@@ -1662,9 +1662,9 @@ function EditProjectContent({ id }: { id: string }) {
               </div>
             )}
           </div>
-          <div className="min-w-0">
+          <div className="portfolio-video-dialog-preview">
             <Label className="mb-2 block text-xs font-semibold text-slate-300">Preview</Label>
-            <VideoPreview source={videoType} videoUrl={videoUrl} emptyText="Choose a source and add or upload a showcase video." />
+            <VideoPreview source={videoType} videoUrl={videoUrl} aspectClassName="portfolio-video-preview" emptyText="Choose a source and add or upload a showcase video." />
           </div>
         </div>
       </PortfolioSectionDialog>
@@ -1754,7 +1754,7 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
 function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave, dialogClassName }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void; dialogClassName?: string }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
-      <DialogContent className={`portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl ${dialogClassName || ""}`} showCloseButton>
+      <DialogContent className="portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl" showCloseButton>
         <DialogHeader className="portfolio-section-dialog-header border-b border-[#1E2D47] bg-[#0F1629]">
           <DialogTitle className="portfolio-section-dialog-title text-base font-bold text-white">{title}</DialogTitle>
           <DialogDescription className="portfolio-section-dialog-description text-xs text-slate-400">{description}</DialogDescription>
