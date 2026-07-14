@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   CornerDownRight,
   Layers,
+  LayoutGrid,
+  List as ListIcon,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -54,6 +56,7 @@ function KnowledgeBaseContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isLoading, setIsLoading] = useState(true);
 
   // Assignment Modal State
@@ -84,6 +87,17 @@ function KnowledgeBaseContent() {
       loadData();
     }
   }, [user]);
+
+  // Remember the user's grid/list preference.
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("kb_view_mode") : null;
+    if (saved === "list" || saved === "grid") setViewMode(saved);
+  }, []);
+
+  const changeViewMode = (mode: "grid" | "list") => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") window.localStorage.setItem("kb_view_mode", mode);
+  };
 
   // Actions
   const handleDuplicate = async (docId: string) => {
@@ -140,6 +154,93 @@ function KnowledgeBaseContent() {
   const topLevelDocuments = filteredDocuments
     .filter((doc) => !doc.parent_id || !filteredIds.has(doc.parent_id))
     .sort((a, b) => naturalCompare(a.title, b.title));
+
+  // Flatten the hierarchy (parent followed by its children, recursively) for list view.
+  const childrenByParentId = new Map<string, DocumentWithRelations[]>();
+  for (const d of filteredDocuments) {
+    if (d.parent_id && filteredIds.has(d.parent_id)) {
+      const list = childrenByParentId.get(d.parent_id) || [];
+      list.push(d);
+      childrenByParentId.set(d.parent_id, list);
+    }
+  }
+  const orderedDocuments: { doc: DocumentWithRelations; depth: number }[] = [];
+  const walkHierarchy = (doc: DocumentWithRelations, depth: number) => {
+    orderedDocuments.push({ doc, depth });
+    (childrenByParentId.get(doc.id) || [])
+      .sort((a, b) => naturalCompare(a.title, b.title))
+      .forEach((child) => walkHierarchy(child, depth + 1));
+  };
+  topLevelDocuments.forEach((doc) => walkHierarchy(doc, 0));
+
+  // Reusable actions menu (used by both grid cards and list rows).
+  const renderActions = (doc: DocumentWithRelations) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-[#1E2D47]/50 cursor-pointer">
+        <MoreVertical className="h-4.5 w-4.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+        <DropdownMenuItem
+          onClick={() => router.push(`/knowledge-base/${doc.id}`)}
+          className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
+        >
+          <Eye className="h-4 w-4 text-slate-400" />
+          <span>View document</span>
+        </DropdownMenuItem>
+
+        {user?.role !== "view" && (
+          <>
+            <DropdownMenuItem
+              onClick={() => router.push(`/knowledge-base/edit/${doc.id}`)}
+              className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
+            >
+              <Edit2 className="h-4 w-4 text-slate-400" />
+              <span>Edit document</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => setAssignTarget({ id: doc.id, title: doc.title })}
+              className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
+            >
+              <UserCheck className="h-4 w-4 text-slate-400" />
+              <span>Assign users</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => handleDuplicate(doc.id)}
+              className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
+            >
+              <Copy className="h-4 w-4 text-slate-400" />
+              <span>Duplicate copy</span>
+            </DropdownMenuItem>
+
+            {doc.status !== "archived" && (
+              <DropdownMenuItem
+                onClick={() => handleArchive(doc.id)}
+                className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
+              >
+                <Archive className="h-4 w-4 text-slate-400" />
+                <span>Archive file</span>
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+
+        {user?.role === "admin" && (
+          <>
+            <DropdownMenuSeparator className="bg-[#1E2D47]" />
+            <DropdownMenuItem
+              onClick={() => handleDelete(doc.id)}
+              className="flex items-center gap-2 cursor-pointer text-[#EF4444] hover:bg-[#EF4444]/10"
+            >
+              <Trash2 className="h-4 w-4 text-[#EF4444]" />
+              <span>Delete permanently</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -216,7 +317,7 @@ function KnowledgeBaseContent() {
           />
         </div>
 
-        {/* Categories Chips */}
+        {/* Categories Chips + View Toggle */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#1E2D47]/50 pb-4">
           <Button
             onClick={() => setSelectedCategory("all")}
@@ -244,6 +345,28 @@ function KnowledgeBaseContent() {
               {cat.name}
             </Button>
           ))}
+
+          {/* Grid / List view toggle */}
+          <div className="ml-auto flex items-center gap-1 rounded-lg border border-[#1E2D47] bg-[#0F1629]/40 p-1">
+            <button
+              onClick={() => changeViewMode("grid")}
+              title="Grid view"
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                viewMode === "grid" ? "bg-[#0EA5E9] text-white" : "text-slate-400 hover:text-white hover:bg-[#1E2D47]"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => changeViewMode("list")}
+              title="List view"
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                viewMode === "list" ? "bg-[#0EA5E9] text-white" : "text-slate-400 hover:text-white hover:bg-[#1E2D47]"
+              }`}
+            >
+              <ListIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -256,7 +379,7 @@ function KnowledgeBaseContent() {
             Try adjusting your search query, selecting another category, or creating a new document to get started.
           </p>
         </Card>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {topLevelDocuments.map((doc) => (
             <Card
@@ -283,71 +406,7 @@ function KnowledgeBaseContent() {
                 )}
 
                 {/* Actions Trigger */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-[#1E2D47]/50 cursor-pointer">
-                    <MoreVertical className="h-4.5 w-4.5" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="border-[#1E2D47] bg-[#0F1629] text-white">
-                    <DropdownMenuItem
-                      onClick={() => router.push(`/knowledge-base/${doc.id}`)}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
-                    >
-                      <Eye className="h-4 w-4 text-slate-400" />
-                      <span>View document</span>
-                    </DropdownMenuItem>
-
-                    {user?.role !== "view" && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => router.push(`/knowledge-base/edit/${doc.id}`)}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
-                        >
-                          <Edit2 className="h-4 w-4 text-slate-400" />
-                          <span>Edit document</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => setAssignTarget({ id: doc.id, title: doc.title })}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
-                        >
-                          <UserCheck className="h-4 w-4 text-slate-400" />
-                          <span>Assign users</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => handleDuplicate(doc.id)}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
-                        >
-                          <Copy className="h-4 w-4 text-slate-400" />
-                          <span>Duplicate copy</span>
-                        </DropdownMenuItem>
-
-                        {doc.status !== "archived" && (
-                          <DropdownMenuItem
-                            onClick={() => handleArchive(doc.id)}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-[#1E2D47] text-white"
-                          >
-                            <Archive className="h-4 w-4 text-slate-400" />
-                            <span>Archive file</span>
-                          </DropdownMenuItem>
-                        )}
-                      </>
-                    )}
-
-                    {user?.role === "admin" && (
-                      <>
-                        <DropdownMenuSeparator className="bg-[#1E2D47]" />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(doc.id)}
-                          className="flex items-center gap-2 cursor-pointer text-[#EF4444] hover:bg-[#EF4444]/10"
-                        >
-                          <Trash2 className="h-4 w-4 text-[#EF4444]" />
-                          <span>Delete permanently</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {renderActions(doc)}
               </div>
 
               {/* Title & Version info */}
@@ -410,6 +469,75 @@ function KnowledgeBaseContent() {
             </Card>
           ))}
         </div>
+      ) : (
+        /* List view: flattened hierarchy, children indented under their parent */
+        <Card className="border-[#1E2D47] bg-[#0F1629] overflow-hidden">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-[#1E2D47] text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="col-span-6">Document</span>
+            <span className="col-span-2">Category</span>
+            <span className="col-span-1">Version</span>
+            <span className="col-span-2">Updated</span>
+            <span className="col-span-1 text-right">Status</span>
+          </div>
+          <div className="divide-y divide-[#1E2D47]/50">
+            {orderedDocuments.map(({ doc, depth }) => (
+              <div
+                key={doc.id}
+                className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-[#1E2D47]/20 transition-colors group"
+              >
+                {/* Title (indented by depth) */}
+                <div className="col-span-12 md:col-span-6 flex items-center gap-2 min-w-0" style={{ paddingLeft: depth * 20 }}>
+                  {depth > 0 && <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />}
+                  {depth === 0 && doc.children && doc.children.length > 0 && (
+                    <Layers className="h-3.5 w-3.5 shrink-0 text-[#0EA5E9]" />
+                  )}
+                  <button
+                    onClick={() => router.push(`/knowledge-base/${doc.id}`)}
+                    className="text-sm font-medium text-white hover:text-[#0EA5E9] transition-colors truncate text-left"
+                  >
+                    {doc.title}
+                  </button>
+                </div>
+
+                {/* Category */}
+                <div className="col-span-6 md:col-span-2 min-w-0">
+                  {doc.category ? (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider truncate inline-block max-w-full"
+                      style={{
+                        backgroundColor: `${doc.category.color}20`,
+                        color: doc.category.color,
+                        border: `1px solid ${doc.category.color}30`,
+                      }}
+                    >
+                      {doc.category.name}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-500">—</span>
+                  )}
+                </div>
+
+                {/* Version */}
+                <div className="col-span-3 md:col-span-1 text-[11px] text-slate-400 font-semibold">
+                  v{doc.version}
+                </div>
+
+                {/* Updated */}
+                <div className="col-span-3 md:col-span-2 text-[11px] text-[#94A3B8] truncate">
+                  {formatRelativeTime(doc.updated_at)}
+                </div>
+
+                {/* Status + actions */}
+                <div className="col-span-12 md:col-span-1 flex items-center justify-end gap-1">
+                  {getStatusBadge(doc.status)}
+                  <div className="opacity-70 group-hover:opacity-100">
+                    {renderActions(doc)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* Assignment Modal */}
