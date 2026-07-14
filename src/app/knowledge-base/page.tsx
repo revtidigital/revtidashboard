@@ -16,6 +16,8 @@ import {
   Trash2,
   FileText,
   AlertTriangle,
+  CornerDownRight,
+  Layers,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -128,6 +130,17 @@ function KnowledgeBaseContent() {
     return matchesCategory && matchesSearch;
   });
 
+  // Natural/alphanumeric compare so "SOP 1" < "SOP 2" < "SOP 10" (not date-wise).
+  const naturalCompare = (a: string, b: string) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
+  // Grid shows only top-level SOPs (parents + orphans whose parent is filtered out),
+  // sorted alphanumerically. Their children render nested inside each card.
+  const filteredIds = new Set(filteredDocuments.map((d) => d.id));
+  const topLevelDocuments = filteredDocuments
+    .filter((doc) => !doc.parent_id || !filteredIds.has(doc.parent_id))
+    .sort((a, b) => naturalCompare(a.title, b.title));
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "published":
@@ -235,7 +248,7 @@ function KnowledgeBaseContent() {
       </div>
 
       {/* Grid of Documents */}
-      {filteredDocuments.length === 0 ? (
+      {topLevelDocuments.length === 0 ? (
         <Card className="border-[#1E2D47] bg-[#0F1629] p-12 text-center text-white flex flex-col items-center justify-center">
           <FileText className="h-12 w-12 text-slate-500 mb-4" />
           <h3 className="text-lg font-bold text-white mb-2">No documents found</h3>
@@ -245,7 +258,7 @@ function KnowledgeBaseContent() {
         </Card>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredDocuments.map((doc) => (
+          {topLevelDocuments.map((doc) => (
             <Card
               key={doc.id}
               className="flex flex-col relative border-[#1E2D47] bg-[#0F1629] p-5 text-white transition-all duration-300 hover:-translate-y-1 hover:border-[#0EA5E9]/40 hover:shadow-[0_4px_25px_-5px_rgba(124,92,252,0.1)]"
@@ -340,6 +353,17 @@ function KnowledgeBaseContent() {
               {/* Title & Version info */}
               <div className="flex-1 flex flex-col justify-between mb-4">
                 <div>
+                  {/* Parent SOP breadcrumb (shown for sub-SOPs) */}
+                  {doc.parent && (
+                    <button
+                      onClick={() => router.push(`/knowledge-base/${doc.parent!.id}`)}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-[#0EA5E9] transition-colors mb-1 truncate max-w-full"
+                      title={`Sub-SOP of ${doc.parent.title}`}
+                    >
+                      <CornerDownRight className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{doc.parent.title}</span>
+                    </button>
+                  )}
                   <h3 className="font-bold text-white text-base leading-snug tracking-tight hover:text-[#0EA5E9] transition-colors cursor-pointer" onClick={() => router.push(`/knowledge-base/${doc.id}`)}>
                     {doc.title}
                   </h3>
@@ -347,6 +371,33 @@ function KnowledgeBaseContent() {
                     VERSION {doc.version}
                   </p>
                 </div>
+
+                {/* Sub-SOP list (shown for parent SOPs) */}
+                {doc.children && doc.children.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-[#1E2D47] bg-[#07090F]/60 p-2.5">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      <Layers className="h-3 w-3 text-[#0EA5E9]" />
+                      {doc.children.length} Sub-SOP{doc.children.length > 1 ? "s" : ""}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {[...doc.children].sort((a, b) => naturalCompare(a.title, b.title)).slice(0, 4).map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => router.push(`/knowledge-base/${child.id}`)}
+                          className="flex items-center gap-1 text-left text-[11px] text-slate-300 hover:text-[#0EA5E9] transition-colors truncate"
+                        >
+                          <CornerDownRight className="h-3 w-3 shrink-0 text-slate-500" />
+                          <span className="truncate">{child.title}</span>
+                        </button>
+                      ))}
+                      {doc.children.length > 4 && (
+                        <span className="text-[10px] text-slate-500 pl-4">
+                          +{doc.children.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer metadata */}

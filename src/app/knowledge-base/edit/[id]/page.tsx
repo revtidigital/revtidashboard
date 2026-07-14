@@ -33,11 +33,13 @@ function EditDocumentContent({ id }: { id: string }) {
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [document, setDocument] = useState<DocumentWithRelations | null>(null);
-  
+  const [allDocuments, setAllDocuments] = useState<DocumentWithRelations[]>([]);
+
   // Form State
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState<string>("none");
+  const [parentId, setParentId] = useState<string>("none");
   const [version, setVersion] = useState("1.0");
   const [status, setStatus] = useState<"draft" | "published" | "archived">("draft");
   
@@ -58,8 +60,12 @@ function EditDocumentContent({ id }: { id: string }) {
       setIsLoading(true);
       try {
         const service = getWorkspaceService();
-        const cats = await service.getCategories();
+        const [cats, docs] = await Promise.all([
+          service.getCategories(),
+          service.getDocuments(),
+        ]);
         setCategories(cats);
+        setAllDocuments(docs);
 
         if (!isNew) {
           const doc = await service.getDocument(id);
@@ -72,6 +78,7 @@ function EditDocumentContent({ id }: { id: string }) {
           setTitle(doc.title);
           setContent(doc.content);
           setCategoryId(doc.category_id || "none");
+          setParentId(doc.parent_id || "none");
           setVersion(doc.version);
           setStatus(doc.status);
         }
@@ -94,6 +101,7 @@ function EditDocumentContent({ id }: { id: string }) {
         title: title.trim() || "Untitled Document",
         content,
         category_id: categoryId === "none" ? null : categoryId,
+        parent_id: parentId === "none" ? null : parentId,
         version: version.trim() || "1.0",
         status: resolvedStatus,
       };
@@ -115,6 +123,27 @@ function EditDocumentContent({ id }: { id: string }) {
       setIsSaving(false);
     }
   };
+
+  // Build the set of documents that cannot be chosen as a parent:
+  // the document itself and all of its descendants (prevents cycles).
+  const invalidParentIds = React.useMemo(() => {
+    const blocked = new Set<string>();
+    if (isNew) return blocked;
+    blocked.add(id);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const d of allDocuments) {
+        if (d.parent_id && blocked.has(d.parent_id) && !blocked.has(d.id)) {
+          blocked.add(d.id);
+          changed = true;
+        }
+      }
+    }
+    return blocked;
+  }, [allDocuments, id, isNew]);
+
+  const parentOptions = allDocuments.filter((d) => !invalidParentIds.has(d.id));
 
   if (isLoading) {
     return (
@@ -215,6 +244,27 @@ function EditDocumentContent({ id }: { id: string }) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Parent SOP selector */}
+              <div className="space-y-1.5">
+                <Label htmlFor="parent-select" className="text-xs font-semibold text-slate-300">Parent SOP</Label>
+                <Select value={parentId} onValueChange={(val) => setParentId(val || "none")}>
+                  <SelectTrigger id="parent-select" className="w-full border-[#1E2D47] bg-[#07090F] text-white">
+                    <SelectValue placeholder="Top-level SOP" />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                    <SelectItem value="none" className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">None (Top-level SOP)</SelectItem>
+                    {parentOptions.map((d) => (
+                      <SelectItem key={d.id} value={d.id} className="hover:bg-[#1E2D47] focus:bg-[#1E2D47]">
+                        {d.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-500">
+                  Leave as top-level, or nest this document under a parent SOP as a sub-SOP.
+                </p>
               </div>
 
               {/* Version input */}

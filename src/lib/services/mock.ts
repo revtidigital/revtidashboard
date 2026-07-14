@@ -80,6 +80,7 @@ const MOCK_CATEGORIES: Category[] = [
 const MOCK_DOCUMENTS: Document[] = [
   {
     id: "doc-1",
+    parent_id: null,
     title: "Client Delivery SOP",
     content: `<h1>Client Delivery Standard Operating Procedure</h1><p>This document outlines the standard workflow for handing off completed work products to Revti Digital clients.</p><div class="callout-block">💡 <strong>Important:</strong> All client deliverables must be reviewed by QA before scheduled delivery.</div><h2>Delivery Workflow</h2><ol><li>Complete final build/draft.</li><li>Request internal review via GitHub or project board.</li><li>Deliver to client using the standard Slack handoff template.</li></ol><table><thead><tr><th>Milestone</th><th>Owner</th><th>TAT</th></tr></thead><tbody><tr><td>Code Freeze</td><td>Engineering</td><td>D - 2</td></tr><tr><td>QA Verification</td><td>QA Team</td><td>D - 1</td></tr><tr><td>Client Handover</td><td>Account Manager</td><td>Due Date</td></tr></tbody></table>`,
     category_id: "cat-1",
@@ -92,6 +93,7 @@ const MOCK_DOCUMENTS: Document[] = [
   },
   {
     id: "doc-2",
+    parent_id: null,
     title: "Development Guidelines & Workflows",
     content: `<h1>Engineering Guidelines</h1><p>Our development ecosystem is designed to optimize code quality, maintainability, and high deployment velocity.</p><h2>Branching Strategy</h2><ul><li><strong>main</strong>: Production branch. Only merged via approved Pull Requests.</li><li><strong>develop</strong>: Staging and active integration branch.</li><li>Feature branches should follow the naming format: <code>feat/[scope]</code>.</li></ul><pre><code>git checkout -b feat/user-auth
 git commit -m "feat: integrate Supabase authentication client"
@@ -106,6 +108,7 @@ git push origin feat/user-auth</code></pre>`,
   },
   {
     id: "doc-3",
+    parent_id: "doc-1",
     title: "QA Testing Procedures",
     content: `<h1>Quality Assurance Protocols</h1><p>This is a guide for running sanity, integration, and regression checks across the workspace. Currently under draft.</p><ul data-type="taskList"><li data-checked="true"><label><input type="checkbox" checked /> Verify login flows</label></li><li><label><input type="checkbox" /> Run full regression suite</label></li><li><label><input type="checkbox" /> Validate mobile responsiveness</label></li></ul>`,
     category_id: "cat-3",
@@ -118,6 +121,7 @@ git push origin feat/user-auth</code></pre>`,
   },
   {
     id: "doc-4",
+    parent_id: null,
     title: "Employee Leave & HR Policies",
     content: `<h1>HR Policies & Guidelines</h1><p>This policy details leaf entitlements, standard working hours, and general operational rules at Revti Digital.</p><h2>Leave Entitlements</h2><ul><li>Casual Leave: 12 days per year.</li><li>Sick Leave: 10 days per year.</li><li>Earned Leave: 15 days per year.</li></ul>`,
     category_id: "cat-5",
@@ -417,11 +421,18 @@ export class MockService implements IWorkspaceService {
       const category = cats.find((c) => c.id === doc.category_id) || null;
       const creator = users.find((u) => u.id === doc.created_by) || null;
       const updater = users.find((u) => u.id === doc.updated_by) || null;
+      const parentDoc = doc.parent_id ? docs.find((d) => d.id === doc.parent_id) : null;
+      const parent = parentDoc ? { id: parentDoc.id, title: parentDoc.title } : null;
+      const children = docs
+        .filter((d) => d.parent_id === doc.id)
+        .map((d) => ({ id: d.id, title: d.title, status: d.status }));
       return {
         ...doc,
         category,
         creator,
         updater,
+        parent,
+        children,
       };
     });
   }
@@ -440,6 +451,7 @@ export class MockService implements IWorkspaceService {
       title: data.title || "Untitled Document",
       content: data.content || "",
       category_id: data.category_id || null,
+      parent_id: data.parent_id || null,
       version: data.version || "1.0",
       status: data.status || "draft",
       created_by: currentUser.id,
@@ -447,7 +459,7 @@ export class MockService implements IWorkspaceService {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    
+
     docs.push(newDoc);
     StorageManager.set(MockService.KEY_DOCUMENTS, docs);
     
@@ -505,6 +517,7 @@ export class MockService implements IWorkspaceService {
       title: `${original.title} (Copy)`,
       content: original.content,
       category_id: original.category_id,
+      parent_id: original.parent_id,
       version: original.version,
       status: "draft", // Starts as draft
       created_by: currentUser.id,

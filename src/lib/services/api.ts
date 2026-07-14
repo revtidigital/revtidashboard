@@ -22,6 +22,8 @@ export interface Document {
   title: string;
   content: string;
   category_id: string | null;
+  /** Self-referential parent SOP. null = top-level (parent) SOP; set = child/sub-SOP. */
+  parent_id: string | null;
   version: string;
   status: "draft" | "published" | "archived";
   created_by: string | null;
@@ -34,6 +36,10 @@ export interface DocumentWithRelations extends Document {
   category?: Category | null;
   creator?: User | null;
   updater?: User | null;
+  /** Parent SOP summary, when this document is a child. */
+  parent?: Pick<Document, "id" | "title"> | null;
+  /** Direct child SOPs, when this document is a parent. */
+  children?: Array<Pick<Document, "id" | "title" | "status">>;
 }
 
 export interface Assignment {

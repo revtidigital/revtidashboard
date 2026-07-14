@@ -34,6 +34,7 @@ CREATE TABLE documents (
     title TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '', -- HTML content from Tiptap Editor
     category_id UUID REFERENCES document_categories(id) ON DELETE SET NULL,
+    parent_id UUID REFERENCES documents(id) ON DELETE SET NULL, -- parent SOP; NULL = top-level SOP
     version TEXT NOT NULL DEFAULT '1.0',
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,

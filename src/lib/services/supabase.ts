@@ -251,11 +251,25 @@ export class SupabaseService implements IWorkspaceService {
         *,
         category:document_categories(*),
         creator:users!documents_created_by_fkey(*),
-        updater:users!documents_updated_by_fkey(*)
+        updater:users!documents_updated_by_fkey(*),
+        parent:documents!documents_parent_id_fkey(id, title)
       `)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return data || [];
+    const docs = (data || []) as DocumentWithRelations[];
+    // Attach direct children to each parent (single pass, no extra round-trip).
+    const childrenByParent = new Map<string, Array<{ id: string; title: string; status: Document["status"] }>>();
+    for (const d of docs) {
+      if (d.parent_id) {
+        const list = childrenByParent.get(d.parent_id) || [];
+        list.push({ id: d.id, title: d.title, status: d.status });
+        childrenByParent.set(d.parent_id, list);
+      }
+    }
+    for (const d of docs) {
+      d.children = childrenByParent.get(d.id) || [];
+    }
+    return docs;
   }
 
   async getDocument(id: string): Promise<DocumentWithRelations | null> {
@@ -265,12 +279,21 @@ export class SupabaseService implements IWorkspaceService {
         *,
         category:document_categories(*),
         creator:users!documents_created_by_fkey(*),
-        updater:users!documents_updated_by_fkey(*)
+        updater:users!documents_updated_by_fkey(*),
+        parent:documents!documents_parent_id_fkey(id, title)
       `)
       .eq("id", id)
       .single();
     if (error) return null;
-    return data;
+
+    const doc = data as DocumentWithRelations;
+    const { data: children } = await this.client
+      .from("documents")
+      .select("id, title, status")
+      .eq("parent_id", id)
+      .order("updated_at", { ascending: false });
+    doc.children = children || [];
+    return doc;
   }
 
   async createDocument(data: Partial<Document>): Promise<DocumentWithRelations> {
@@ -279,6 +302,7 @@ export class SupabaseService implements IWorkspaceService {
       title: data.title || "Untitled Document",
       content: data.content || "",
       category_id: data.category_id || null,
+      parent_id: data.parent_id || null,
       version: data.version || "1.0",
       status: data.status || "draft",
       created_by: currentUser.id,
@@ -343,6 +367,7 @@ export class SupabaseService implements IWorkspaceService {
       title: `${original.title} (Copy)`,
       content: original.content,
       category_id: original.category_id,
+      parent_id: original.parent_id,
       version: original.version,
       status: "draft",
       created_by: currentUser.id,

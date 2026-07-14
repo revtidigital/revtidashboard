@@ -15,6 +15,8 @@ import {
   Edit2,
   Clock,
   ExternalLink,
+  CornerDownRight,
+  Layers,
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout-shell";
 import { useUser } from "@/lib/context/user-context";
@@ -229,6 +231,18 @@ function ViewDocumentContent({ id }: { id: string }) {
               )}
             </div>
 
+            {/* Parent SOP breadcrumb for sub-SOPs */}
+            {doc.parent && (
+              <Link
+                href={`/knowledge-base/${doc.parent.id}`}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-[#0EA5E9] transition-colors"
+              >
+                <CornerDownRight className="h-3.5 w-3.5" />
+                <span>Sub-SOP of</span>
+                <span className="text-slate-200">{doc.parent.title}</span>
+              </Link>
+            )}
+
             <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">
               {doc.title}
             </h1>
@@ -245,6 +259,39 @@ function ViewDocumentContent({ id }: { id: string }) {
             className="tiptap prose prose-invert max-w-none text-slate-200"
             dangerouslySetInnerHTML={{ __html: doc.content }}
           />
+
+          {/* Sub-SOPs (child documents) */}
+          {doc.children && doc.children.length > 0 && (
+            <Card className="border-[#1E2D47] bg-[#0F1629] p-6 text-white">
+              <div className="flex items-center gap-2 border-b border-[#1E2D47] pb-3 mb-4">
+                <Layers className="h-4 w-4 text-[#0EA5E9]" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-[#94A3B8]">
+                  Sub-SOPs ({doc.children.length})
+                </h2>
+              </div>
+              <div className="flex flex-col divide-y divide-[#1E2D47]/50">
+                {[...doc.children]
+                  .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" }))
+                  .map((child) => (
+                  <Link
+                    key={child.id}
+                    href={`/knowledge-base/${child.id}`}
+                    className="flex items-center justify-between gap-2 py-2.5 group"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                      <span className="text-sm text-slate-200 group-hover:text-[#0EA5E9] transition-colors truncate">
+                        {child.title}
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase text-slate-500 shrink-0">
+                      {child.status}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Acknowledgement System panel */}
           {doc.status === "published" && (
