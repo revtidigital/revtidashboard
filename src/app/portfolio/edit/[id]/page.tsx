@@ -1594,7 +1594,7 @@ function EditProjectContent({ id }: { id: string }) {
                                 }
                               }}>
                                 <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
-                                <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                                <SelectContent sideOffset={6} className="z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
                                   {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                                 </SelectContent>
                               </Select>
@@ -1633,7 +1633,7 @@ function EditProjectContent({ id }: { id: string }) {
         )}
       </PortfolioSectionDialog>
 
-      <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done">
+      <PortfolioSectionDialog open={activeDialog === "videoShowcase"} title="Edit Video Showcase" description="Configure the project showcase video." onCancel={closeSectionDialog} onSave={closeSectionDialog} saveLabel="Done" dialogClassName="portfolio-video-dialog">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-5">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1641,7 +1641,7 @@ function EditProjectContent({ id }: { id: string }) {
                 <Label className="text-xs font-semibold text-slate-300">Video Source</Label>
                 <Select value={videoType} onValueChange={(value) => setVideoType(normalizeVideoSource(value))}>
                   <SelectTrigger className="border-[#1E2D47] bg-[#07090F] text-white"><SelectValue placeholder="Video Source" /></SelectTrigger>
-                  <SelectContent className="border-[#1E2D47] bg-[#0F1629] text-white">
+                  <SelectContent sideOffset={6} className="z-[300] border-[#1E2D47] bg-[#0F1629] text-white">
                     {VIDEO_SOURCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -1751,10 +1751,10 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
   );
 }
 
-function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void }) {
+function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave, dialogClassName }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void; dialogClassName?: string }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
-      <DialogContent className="portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none" showCloseButton>
+      <DialogContent className={`portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl sm:max-w-none ${dialogClassName || ""}`} showCloseButton>
         <DialogHeader className="portfolio-section-dialog-header border-b border-[#1E2D47] bg-[#0F1629]">
           <DialogTitle className="portfolio-section-dialog-title text-base font-bold text-white">{title}</DialogTitle>
           <DialogDescription className="portfolio-section-dialog-description text-xs text-slate-400">{description}</DialogDescription>

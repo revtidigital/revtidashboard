@@ -291,6 +291,17 @@
     overflow: hidden;
   }
 
+  .portfolio-video-dialog {
+    width: min(72vw, 1080px);
+    height: min(76dvh, 820px);
+    max-width: calc(100vw - 48px);
+    max-height: calc(100dvh - 48px);
+  }
+
+  [data-slot="select-content"] {
+    pointer-events: auto;
+  }
+
   .portfolio-section-dialog-header {
     position: sticky;
     top: 0;
@@ -345,12 +356,22 @@
       width: min(82vw, 1150px);
       height: 82dvh;
     }
+
+    .portfolio-video-dialog {
+      width: min(78vw, 980px);
+      height: min(80dvh, 820px);
+    }
   }
 
   @media (max-width: 1023px) {
     .portfolio-section-dialog {
       width: 90vw;
       height: 88dvh;
+    }
+
+    .portfolio-video-dialog {
+      width: min(90vw, 900px);
+      height: min(86dvh, 850px);
     }
   }
 
@@ -383,7 +404,8 @@
   }
 
   @media (max-width: 767px) {
-    .portfolio-section-dialog {
+    .portfolio-section-dialog,
+    .portfolio-video-dialog {
       width: calc(100vw - 24px);
       height: calc(100dvh - 24px);
       max-width: none;
