@@ -1751,7 +1751,7 @@ function SectionCard({ title, enabled, summary, buttonLabel, onToggle, onEdit }:
   );
 }
 
-function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void }) {
+function PortfolioSectionDialog({ open, title, description, children, saveLabel, onCancel, onSave, dialogClassName }: { open: boolean; title: string; description: string; children: React.ReactNode; saveLabel: string; onCancel: () => void; onSave: () => void; dialogClassName?: string }) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
       <DialogContent className="portfolio-section-dialog grid gap-0 border border-[#1E2D47] bg-[#0F1629] p-0 text-white shadow-2xl" showCloseButton>
